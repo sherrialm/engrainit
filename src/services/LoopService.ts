@@ -44,21 +44,44 @@ function docToLoop(docData: DocumentData, id: string): Loop {
  * Get all loops for a user with timeout to prevent infinite hangs
  */
 export async function getLoops(userId: string): Promise<Loop[]> {
-    if (!db) throw new Error('Firestore not initialized');
+    console.log('[LoopService] getLoops called with userId:', userId);
 
-    const loopsRef = collection(db!, 'users', userId, 'loops');
-    const q = query(loopsRef, orderBy('createdAt', 'desc'));
+    if (!db) {
+        console.error('[LoopService] db not initialized');
+        throw new Error('Firestore not initialized');
+    }
 
-    // Add timeout to prevent hanging operations
-    const timeoutMs = 15000;
-    const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firestore fetch timed out. Please refresh the page.')), timeoutMs)
-    );
+    try {
+        const loopsRef = collection(db!, 'users', userId, 'loops');
+        console.log('[LoopService] Collection path:', loopsRef.path);
 
-    const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+        // Simplified query without orderBy to test
+        console.log('[LoopService] Fetching docs...');
 
-    return snapshot.docs.map(doc => docToLoop(doc.data(), doc.id));
+        // Add timeout to prevent hanging operations
+        const timeoutMs = 15000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => {
+                console.error('[LoopService] getLoops TIMED OUT after 15s');
+                reject(new Error('Firestore fetch timed out. Please refresh the page.'));
+            }, timeoutMs)
+        );
+
+        const snapshot = await Promise.race([getDocs(loopsRef), timeoutPromise]);
+        console.log('[LoopService] Got', snapshot.docs.length, 'docs');
+
+        const loops = snapshot.docs.map(doc => docToLoop(doc.data(), doc.id));
+        // Sort in memory instead of in query
+        loops.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        return loops;
+    } catch (error: any) {
+        console.error('[LoopService] getLoops FAILED:', error);
+        console.error('[LoopService] Error code:', error?.code);
+        throw error;
+    }
 }
+
 
 /**
  * Get loops by category
