@@ -15,7 +15,7 @@ import {
     orderBy,
     Timestamp,
     DocumentData
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Loop, LoopCategory } from '@/types';

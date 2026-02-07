@@ -1,7 +1,8 @@
 // Firebase configuration
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+// Use Firestore Lite - simpler REST-based API that doesn't use WebSocket streams
+import { getFirestore, Firestore } from 'firebase/firestore/lite';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -28,8 +29,7 @@ if (typeof window !== 'undefined') {
         db = getFirestore(app);
         storage = getStorage(app);
 
-        console.log('[Firebase] Initialized. Project:', firebaseConfig.projectId);
-        console.log('[Firebase] Auth domain:', firebaseConfig.authDomain);
+        console.log('[Firebase] Initialized with Firestore Lite. Project:', firebaseConfig.projectId);
     } catch (error) {
         console.error('Firebase initialization error:', error);
     }
