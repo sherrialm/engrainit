@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAudioStore } from '@/stores/audioStore';
 import { formatDuration } from '@/lib/utils';
 
@@ -35,8 +36,8 @@ export default function FocusPage() {
 
     if (!currentLoop) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p className="text-ink-500 dark:text-paper-500">Loading...</p>
+            <div className="min-h-screen flex items-center justify-center bg-parchment-200">
+                <p className="text-forest-500">Loading...</p>
             </div>
         );
     }
@@ -54,7 +55,18 @@ export default function FocusPage() {
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
-        <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-8 bg-paper-100 dark:bg-ink-900">
+        <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-8 bg-parchment-200">
+            {/* Glowing Logo when playing */}
+            <div className={`mb-6 ${isPlaying ? 'glow-pulse' : ''} rounded-full`}>
+                <Image
+                    src="/logo.png"
+                    alt="EngrainIt"
+                    width={80}
+                    height={80}
+                    className="rounded-full"
+                />
+            </div>
+
             {/* Breathing Text Display */}
             <div className={`max-w-3xl text-center mb-12 ${isPlaying ? 'breathing' : ''}`}>
                 {currentLoop.text ? (
@@ -64,7 +76,7 @@ export default function FocusPage() {
                 ) : (
                     <div className="space-y-4">
                         <div className="text-8xl">🎙️</div>
-                        <p className="font-serif text-2xl text-ink-700 dark:text-paper-300">
+                        <p className="font-serif text-2xl text-forest-600">
                             {currentLoop.title}
                         </p>
                     </div>
@@ -73,18 +85,18 @@ export default function FocusPage() {
 
             {/* Loop Counter Badge */}
             <div className="mb-8">
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-paper-200 dark:bg-ink-800 text-sm text-ink-600 dark:text-paper-400">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-parchment-300 text-sm text-forest-600">
                     🔁 {currentLoop.playCount || 0} plays
                     {intervalRemaining !== null && (
-                        <span className="ml-2 text-ink-400 dark:text-paper-600">
+                        <span className="ml-2 text-forest-400">
                             • Next in {intervalRemaining}s
                         </span>
                     )}
                 </span>
             </div>
 
-            {/* Progress Ring */}
-            <div className="relative w-48 h-48 mb-8">
+            {/* Progress Ring with Amber Glow */}
+            <div className={`relative w-48 h-48 mb-8 rounded-full ${isPlaying ? 'glow-pulse' : ''}`}>
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                     {/* Background circle */}
                     <circle
@@ -94,19 +106,19 @@ export default function FocusPage() {
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
-                        className="text-paper-300 dark:text-ink-700"
+                        className="text-forest-200"
                     />
-                    {/* Progress circle */}
+                    {/* Progress circle - Amber Gold */}
                     <circle
                         cx="50"
                         cy="50"
                         r="45"
                         fill="none"
-                        stroke="currentColor"
+                        stroke="#FFBF00"
                         strokeWidth="4"
                         strokeLinecap="round"
                         strokeDasharray={`${progress * 2.83} 283`}
-                        className="text-ink-900 dark:text-paper-100 transition-all duration-100"
+                        className="transition-all duration-100"
                     />
                 </svg>
 
@@ -115,7 +127,7 @@ export default function FocusPage() {
                     <span className="text-3xl mb-1">
                         {isPlaying ? '🔊' : '⏸️'}
                     </span>
-                    <span className="text-sm text-ink-500 dark:text-paper-500">
+                    <span className="text-sm text-forest-500">
                         {formatDuration(currentTime)}
                     </span>
                 </div>
@@ -123,10 +135,13 @@ export default function FocusPage() {
 
             {/* Controls */}
             <div className="flex items-center gap-4">
-                {/* Play/Pause */}
+                {/* Play/Pause - Forest Green with Amber on active */}
                 <button
                     onClick={toggle}
-                    className="w-16 h-16 rounded-full bg-ink-900 dark:bg-paper-100 text-paper-100 dark:text-ink-900 flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-lg"
+                    className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-lg ${isPlaying
+                            ? 'bg-amber-500 text-forest-900 glow-pulse'
+                            : 'bg-forest-600 text-parchment-100'
+                        }`}
                 >
                     {isPlaying ? '⏸️' : '▶️'}
                 </button>
@@ -135,8 +150,8 @@ export default function FocusPage() {
                 <button
                     onClick={handleToggleSpaced}
                     className={`px-5 py-3 rounded-full font-medium transition-all ${isSpacedMode
-                            ? 'bg-green-500 text-white'
-                            : 'bg-paper-200 dark:bg-ink-800 text-ink-600 dark:text-paper-400 hover:bg-paper-300 dark:hover:bg-ink-700'
+                        ? 'bg-amber-500 text-forest-900'
+                        : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                         }`}
                 >
                     {isSpacedMode ? '🔁 Spaced: ON' : '🔁 Spaced: OFF'}
@@ -148,14 +163,14 @@ export default function FocusPage() {
                         stop();
                         setIsSpacedMode(false);
                     }}
-                    className="w-12 h-12 rounded-full bg-paper-200 dark:bg-ink-800 text-ink-500 dark:text-paper-500 flex items-center justify-center text-xl hover:bg-paper-300 dark:hover:bg-ink-700 transition-colors"
+                    className="w-12 h-12 rounded-full bg-parchment-300 text-forest-500 flex items-center justify-center text-xl hover:bg-parchment-400 transition-colors"
                 >
                     ⏹️
                 </button>
             </div>
 
             {/* Info */}
-            <div className="mt-8 text-center text-sm text-ink-400 dark:text-paper-600">
+            <div className="mt-8 text-center text-sm text-forest-400">
                 <p>
                     <span className="font-medium">{currentLoop.title}</span>
                     <span className="mx-2">•</span>
@@ -168,7 +183,7 @@ export default function FocusPage() {
             {/* Back Button */}
             <button
                 onClick={() => router.back()}
-                className="mt-8 text-ink-400 dark:text-paper-600 hover:text-ink-600 dark:hover:text-paper-400 text-sm"
+                className="mt-8 text-forest-400 hover:text-forest-600 text-sm"
             >
                 ← Back
             </button>

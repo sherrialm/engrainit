@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 
 // Check if sign-ups are allowed (defaults to true if not set)
@@ -54,16 +55,23 @@ export default function LoginPage() {
     };
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-center p-8">
+        <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-parchment-200">
             <div className="w-full max-w-md">
-                {/* Header */}
+                {/* Header with Logo */}
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-block">
-                        <h1 className="font-serif text-4xl font-bold text-ink-900 dark:text-paper-100">
+                        <Image
+                            src="/logo.png"
+                            alt="EngrainIt"
+                            width={80}
+                            height={80}
+                            className="mx-auto mb-4"
+                        />
+                        <h1 className="font-serif text-4xl font-bold text-forest-700">
                             EngrainIt
                         </h1>
                     </Link>
-                    <p className="text-ink-500 dark:text-paper-500 mt-2">
+                    <p className="text-forest-500 mt-2">
                         {isSignUp ? 'Create your account' : 'Welcome back'}
                     </p>
                 </div>

@@ -10,41 +10,87 @@ const config: Config = {
     theme: {
         extend: {
             colors: {
-                // Ink-on-Paper palette
+                // Glow-Grain Palette
+                parchment: {
+                    DEFAULT: '#F5F5DC',
+                    50: '#FDFDF5',
+                    100: '#FAFAED',
+                    200: '#F5F5DC',
+                    300: '#E8E8CC',
+                    400: '#DBDBB8',
+                    500: '#CECEA4',
+                },
+                forest: {
+                    DEFAULT: '#2D5A27',
+                    50: '#E8F0E7',
+                    100: '#D1E1CF',
+                    200: '#A3C39F',
+                    300: '#75A56F',
+                    400: '#47873F',
+                    500: '#2D5A27',
+                    600: '#244A1F',
+                    700: '#1E3D1A',
+                    800: '#172E14',
+                    900: '#0F1F0D',
+                },
+                amber: {
+                    DEFAULT: '#FFBF00',
+                    50: '#FFF8E6',
+                    100: '#FFF1CC',
+                    200: '#FFE599',
+                    300: '#FFD966',
+                    400: '#FFCD33',
+                    500: '#FFBF00',
+                    600: '#CC9900',
+                    700: '#997300',
+                    800: '#664D00',
+                    900: '#332600',
+                },
+                // Legacy support (maps to new colors)
                 paper: {
-                    50: '#FDFCFB',
-                    100: '#F9F6F2',
-                    200: '#F5F0E8',
-                    300: '#EDE5D8',
-                    400: '#E0D4C3',
-                    500: '#D1C4AD',
+                    50: '#FDFDF5',
+                    100: '#FAFAED',
+                    200: '#F5F5DC',
+                    300: '#E8E8CC',
+                    400: '#DBDBB8',
+                    500: '#CECEA4',
+                    600: '#B8B88C',
                 },
                 ink: {
-                    50: '#F7F7F7',
-                    100: '#E3E3E3',
-                    200: '#C8C8C8',
-                    300: '#A4A4A4',
-                    400: '#818181',
-                    500: '#666666',
-                    600: '#515151',
-                    700: '#434343',
-                    800: '#383838',
-                    900: '#1A1A1A',
-                    950: '#0D0D0D',
+                    50: '#E8F0E7',
+                    100: '#D1E1CF',
+                    200: '#A3C39F',
+                    300: '#75A56F',
+                    400: '#47873F',
+                    500: '#2D5A27',
+                    600: '#244A1F',
+                    700: '#1E3D1A',
+                    800: '#172E14',
+                    900: '#0F1F0D',
+                    950: '#0A140A',
                 },
             },
             fontFamily: {
-                serif: ['Playfair Display', 'Georgia', 'serif'],
+                serif: ['Crimson Pro', 'Georgia', 'serif'],
                 sans: ['Inter', 'system-ui', 'sans-serif'],
             },
             animation: {
                 'breathe': 'breathe 4s ease-in-out infinite',
+                'glow-pulse': 'glowPulse 2s ease-in-out infinite',
                 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             },
             keyframes: {
                 breathe: {
                     '0%, 100%': { transform: 'scale(1)', opacity: '0.8' },
                     '50%': { transform: 'scale(1.05)', opacity: '1' },
+                },
+                glowPulse: {
+                    '0%, 100%': {
+                        boxShadow: '0 0 20px rgba(255, 191, 0, 0.4), 0 0 40px rgba(255, 191, 0, 0.2)'
+                    },
+                    '50%': {
+                        boxShadow: '0 0 40px rgba(255, 191, 0, 0.6), 0 0 80px rgba(255, 191, 0, 0.4)'
+                    },
                 },
             },
         },

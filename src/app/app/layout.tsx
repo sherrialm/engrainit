@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function AppLayout({
@@ -28,10 +29,19 @@ export default function AppLayout({
     // Show loading while checking auth
     if (!isInitialized) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-paper-100 dark:bg-ink-900">
+            <div className="min-h-screen flex items-center justify-center bg-parchment-200">
                 <div className="text-center">
-                    <div className="animate-spin h-10 w-10 border-4 border-ink-200 border-t-ink-900 dark:border-ink-700 dark:border-t-paper-100 rounded-full mx-auto mb-4"></div>
-                    <p className="text-ink-500 dark:text-paper-500">Loading...</p>
+                    {/* Pulsing logo during load */}
+                    <div className="w-16 h-16 mx-auto mb-4 glow-pulse rounded-full">
+                        <Image
+                            src="/logo.png"
+                            alt="EngrainIt"
+                            width={64}
+                            height={64}
+                            className="rounded-full"
+                        />
+                    </div>
+                    <p className="text-forest-500 font-serif">Loading...</p>
                 </div>
             </div>
         );
@@ -43,9 +53,9 @@ export default function AppLayout({
     }
 
     return (
-        <div className="min-h-screen bg-paper-100 dark:bg-ink-900">
+        <div className="min-h-screen bg-parchment-200">
             {/* Navigation Header */}
-            <header className="border-b border-ink-100 dark:border-ink-800">
+            <header className="border-b border-forest-100 bg-parchment-100/80 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Back Button + Logo */}
@@ -56,14 +66,23 @@ export default function AppLayout({
                                     console.log('Back button clicked');
                                     router.back();
                                 }}
-                                className="text-ink-400 hover:text-ink-600 dark:text-paper-500 dark:hover:text-paper-300 transition-colors"
+                                className="text-forest-400 hover:text-forest-600 transition-colors"
                                 aria-label="Go back"
                             >
                                 ← Back
                             </button>
-                            <h1 className="font-serif text-2xl font-bold text-ink-900 dark:text-paper-100">
-                                EngrainIt
-                            </h1>
+                            <a href="/app" className="flex items-center gap-2">
+                                <Image
+                                    src="/logo.png"
+                                    alt="EngrainIt"
+                                    width={40}
+                                    height={40}
+                                    className="rounded-full"
+                                />
+                                <h1 className="font-serif text-2xl font-bold text-forest-700">
+                                    EngrainIt
+                                </h1>
+                            </a>
                         </div>
 
                         {/* Navigation */}
@@ -76,7 +95,7 @@ export default function AppLayout({
                             </a>
                             <button
                                 onClick={() => signOut()}
-                                className="btn-ghost text-ink-400 hover:text-ink-600"
+                                className="btn-ghost text-forest-400 hover:text-forest-600"
                             >
                                 Sign Out
                             </button>
