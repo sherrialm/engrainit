@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 
+// Check if sign-ups are allowed (defaults to true if not set)
+const ALLOW_SIGNUPS = process.env.NEXT_PUBLIC_ALLOW_SIGNUPS !== 'false';
+
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
@@ -17,6 +20,11 @@ export default function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         clearError();
+
+        // Block sign-ups if not allowed
+        if (isSignUp && !ALLOW_SIGNUPS) {
+            return;
+        }
 
         if (isSignUp && password !== confirmPassword) {
             return; // Could set a local error here
@@ -35,6 +43,10 @@ export default function LoginPage() {
     };
 
     const toggleMode = () => {
+        // Don't allow switching to sign-up if not allowed
+        if (!isSignUp && !ALLOW_SIGNUPS) {
+            return;
+        }
         setIsSignUp(!isSignUp);
         clearError();
         setPassword('');
@@ -144,24 +156,26 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Toggle Mode */}
-                    <div className="mt-6 text-center text-sm text-ink-500 dark:text-paper-500">
-                        {isSignUp ? (
-                            <>
-                                Already have an account?{' '}
-                                <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
-                                    Sign in
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                Don&apos;t have an account?{' '}
-                                <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
-                                    Create one
-                                </button>
-                            </>
-                        )}
-                    </div>
+                    {/* Toggle Mode - Only show if sign-ups are allowed */}
+                    {ALLOW_SIGNUPS && (
+                        <div className="mt-6 text-center text-sm text-ink-500 dark:text-paper-500">
+                            {isSignUp ? (
+                                <>
+                                    Already have an account?{' '}
+                                    <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
+                                        Sign in
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    Don&apos;t have an account?{' '}
+                                    <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
+                                        Create one
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Back to Home */}
@@ -174,3 +188,4 @@ export default function LoginPage() {
         </main>
     );
 }
+
