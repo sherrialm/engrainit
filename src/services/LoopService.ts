@@ -141,7 +141,7 @@ export async function deleteLoop(userId: string, loopId: string): Promise<void> 
     // Get the loop first to delete the audio file
     const loop = await getLoop(userId, loopId);
 
-    if (loop && loop.audioUrl.includes('firebasestorage')) {
+    if (loop && loop.audioUrl.includes('firebasestorage') && storage) {
         try {
             const audioRef = ref(storage, loop.audioUrl);
             await deleteObject(audioRef);
@@ -172,7 +172,7 @@ export async function incrementPlayCount(userId: string, loopId: string): Promis
 export async function uploadAudio(userId: string, audioBlob: Blob, filename: string): Promise<string> {
     if (!storage) throw new Error('Firebase Storage not initialized');
 
-    const audioRef = ref(storage, `users/${userId}/audio/${filename}`);
+    const audioRef = ref(storage!, `users/${userId}/audio/${filename}`);
     await uploadBytes(audioRef, audioBlob);
 
     return getDownloadURL(audioRef);
