@@ -98,35 +98,58 @@ export async function createLoop(
     userId: string,
     loop: Omit<Loop, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'playCount'>
 ): Promise<Loop> {
-    if (!db) throw new Error('Firestore not initialized');
+    console.log('[LoopService] createLoop called with userId:', userId);
+    console.log('[LoopService] db initialized:', !!db);
 
-    const loopsRef = collection(db!, 'users', userId, 'loops');
-    const now = Timestamp.now();
+    if (!db) {
+        console.error('[LoopService] Firestore db is not initialized!');
+        throw new Error('Firestore not initialized');
+    }
 
-    // Add timeout to prevent hanging operations
-    const timeoutMs = 15000;
-    const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Firestore operation timed out. Please check your connection and try again.')), timeoutMs)
-    );
+    try {
+        const loopsRef = collection(db!, 'users', userId, 'loops');
+        console.log('[LoopService] Collection reference created:', loopsRef.path);
 
-    const addDocPromise = addDoc(loopsRef, {
-        ...loop,
-        userId,
-        createdAt: now,
-        updatedAt: now,
-        playCount: 0,
-    });
+        const now = Timestamp.now();
+        console.log('[LoopService] Timestamp created');
 
-    const docRef = await Promise.race([addDocPromise, timeoutPromise]);
+        const docData = {
+            ...loop,
+            userId,
+            createdAt: now,
+            updatedAt: now,
+            playCount: 0,
+        };
+        console.log('[LoopService] Document data prepared, attempting addDoc...');
 
-    return {
-        ...loop,
-        id: docRef.id,
-        userId,
-        createdAt: now.toDate(),
-        updatedAt: now.toDate(),
-        playCount: 0,
-    };
+        // Add timeout to prevent hanging operations
+        const timeoutMs = 15000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => {
+                console.error('[LoopService] Firestore addDoc TIMED OUT after 15s');
+                reject(new Error('Firestore operation timed out. Please check your connection and try again.'));
+            }, timeoutMs)
+        );
+
+        const addDocPromise = addDoc(loopsRef, docData);
+
+        const docRef = await Promise.race([addDocPromise, timeoutPromise]);
+        console.log('[LoopService] addDoc SUCCESS! Document ID:', docRef.id);
+
+        return {
+            ...loop,
+            id: docRef.id,
+            userId,
+            createdAt: now.toDate(),
+            updatedAt: now.toDate(),
+            playCount: 0,
+        };
+    } catch (error: any) {
+        console.error('[LoopService] createLoop FAILED:', error);
+        console.error('[LoopService] Error code:', error?.code);
+        console.error('[LoopService] Error message:', error?.message);
+        throw error;
+    }
 }
 
 /**
