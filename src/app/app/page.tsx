@@ -175,14 +175,29 @@ function DocumentUploadPanel() {
     };
 
     const handleSaveToVault = async () => {
-        if (!generatedAudio || !user?.uid) return;
+        console.log('[DocSave] Starting save...', { hasAudio: !!generatedAudio, userId: user?.uid });
+
+        if (!generatedAudio) {
+            console.error('[DocSave] No generated audio to save');
+            setError('No audio to save. Please generate audio first.');
+            return;
+        }
+
+        if (!user?.uid) {
+            console.error('[DocSave] User not authenticated');
+            setError('Please sign in to save loops to your vault.');
+            return;
+        }
 
         try {
             setIsGenerating(true);
+            console.log('[DocSave] Uploading audio to Firebase Storage...');
 
             const filename = `doc-${Date.now()}.mp3`;
             const audioUrl = await uploadBase64Audio(user.uid, generatedAudio, filename);
+            console.log('[DocSave] Audio uploaded successfully:', audioUrl);
 
+            console.log('[DocSave] Saving loop to Firestore...');
             await addLoop(user.uid, {
                 title: title || 'Document Loop',
                 category,
@@ -192,9 +207,11 @@ function DocumentUploadPanel() {
                 duration: currentLoop?.duration || 0,
                 intervalSeconds: interval,
             });
+            console.log('[DocSave] Loop saved successfully!');
 
             router.push('/app/vault');
         } catch (err: any) {
+            console.error('[DocSave] Error:', err);
             setError(err.message || 'Failed to save loop');
         } finally {
             setIsGenerating(false);
@@ -484,16 +501,31 @@ function TextToSpeechPanel() {
     };
 
     const handleSaveToVault = async () => {
-        if (!generatedAudio || !user?.uid) return;
+        console.log('[SaveToVault] Starting save...', { hasAudio: !!generatedAudio, userId: user?.uid });
+
+        if (!generatedAudio) {
+            console.error('[SaveToVault] No generated audio to save');
+            setError('No audio to save. Please generate audio first.');
+            return;
+        }
+
+        if (!user?.uid) {
+            console.error('[SaveToVault] User not authenticated');
+            setError('Please sign in to save loops to your vault.');
+            return;
+        }
 
         try {
             setIsGenerating(true);
+            console.log('[SaveToVault] Uploading audio to Firebase Storage...');
 
             // Upload to Firebase Storage
             const filename = `tts-${Date.now()}.mp3`;
             const audioUrl = await uploadBase64Audio(user.uid, generatedAudio, filename);
+            console.log('[SaveToVault] Audio uploaded successfully:', audioUrl);
 
             // Save to Firestore
+            console.log('[SaveToVault] Saving loop to Firestore...');
             await addLoop(user.uid, {
                 title: title || 'Untitled Loop',
                 category,
@@ -503,10 +535,12 @@ function TextToSpeechPanel() {
                 duration: currentLoop?.duration || 0,
                 intervalSeconds: interval,
             });
+            console.log('[SaveToVault] Loop saved successfully!');
 
             // Navigate to vault
             router.push('/app/vault');
         } catch (err: any) {
+            console.error('[SaveToVault] Error:', err);
             setError(err.message || 'Failed to save loop');
         } finally {
             setIsGenerating(false);
@@ -797,16 +831,31 @@ function VoiceRecordingPanel() {
     };
 
     const handleSaveToVault = async () => {
-        if (!recordedAudio || !user?.uid) return;
+        console.log('[VoiceSave] Starting save...', { hasAudio: !!recordedAudio, userId: user?.uid });
+
+        if (!recordedAudio) {
+            console.error('[VoiceSave] No recorded audio to save');
+            setError('No recording to save. Please record audio first.');
+            return;
+        }
+
+        if (!user?.uid) {
+            console.error('[VoiceSave] User not authenticated');
+            setError('Please sign in to save loops to your vault.');
+            return;
+        }
 
         try {
             setIsSaving(true);
+            console.log('[VoiceSave] Uploading audio to Firebase Storage...');
 
             // Upload to Firebase Storage
             const filename = `recording-${Date.now()}.webm`;
             const audioUrl = await uploadBase64Audio(user.uid, recordedAudio, filename);
+            console.log('[VoiceSave] Audio uploaded successfully:', audioUrl);
 
             // Save to Firestore
+            console.log('[VoiceSave] Saving loop to Firestore...');
             await addLoop(user.uid, {
                 title: title || 'Voice Recording',
                 category,
@@ -815,9 +864,11 @@ function VoiceRecordingPanel() {
                 duration: recordingTime,
                 intervalSeconds: interval,
             });
+            console.log('[VoiceSave] Loop saved successfully!');
 
             router.push('/app/vault');
         } catch (err: any) {
+            console.error('[VoiceSave] Error:', err);
             setError(err.message || 'Failed to save recording');
         } finally {
             setIsSaving(false);
