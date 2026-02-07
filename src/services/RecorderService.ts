@@ -58,42 +58,58 @@ export class RecorderService {
         this.audioChunks = [];
 
         try {
-            // Use WebM for broad browser support
-            const options = { mimeType: 'audio/webm;codecs=opus' };
+            // Try different MIME types for compatibility
+            let mimeType = 'audio/webm;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/mp4';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = ''; // Let browser choose
+                    }
+                }
+            }
 
-            // Fallback for Safari
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                this.mediaRecorder = new MediaRecorder(this.stream!);
+            console.log('[Recorder] Using MIME type:', mimeType || 'default');
+
+            if (mimeType) {
+                this.mediaRecorder = new MediaRecorder(this.stream!, { mimeType });
             } else {
-                this.mediaRecorder = new MediaRecorder(this.stream!, options);
+                this.mediaRecorder = new MediaRecorder(this.stream!);
             }
 
             this.mediaRecorder.ondataavailable = (event) => {
+                console.log('[Recorder] ondataavailable, data size:', event.data.size);
                 if (event.data.size > 0) {
                     this.audioChunks.push(event.data);
                 }
             };
 
             this.mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                console.log('[Recorder] onstop fired, chunks:', this.audioChunks.length);
+                const audioBlob = new Blob(this.audioChunks, { type: mimeType || 'audio/webm' });
+                console.log('[Recorder] Created blob, size:', audioBlob.size);
                 const duration = (Date.now() - this.startTime) / 1000;
                 this.onRecordingComplete?.(audioBlob, duration);
                 this.stopTimeUpdate();
             };
 
             this.mediaRecorder.onerror = (event: any) => {
-                console.error('MediaRecorder error:', event);
+                console.error('[Recorder] MediaRecorder error:', event);
                 this.onError?.('Recording failed. Please try again.');
                 this.stopRecording();
             };
 
-            this.mediaRecorder.start(100); // Collect data every 100ms
+            // Start recording - don't use timeslice, request data on stop instead
+            this.mediaRecorder.start();
+            console.log('[Recorder] MediaRecorder started, state:', this.mediaRecorder.state);
+
             this.startTime = Date.now();
             this.isRecording = true;
             this.onRecordingStateChange?.(true);
             this.startTimeUpdate();
         } catch (error: any) {
-            console.error('Failed to start recording:', error);
+            console.error('[Recorder] Failed to start recording:', error);
             this.onError?.('Failed to start recording. Please try again.');
         }
     }
@@ -102,7 +118,17 @@ export class RecorderService {
      * Stop recording
      */
     stop(): void {
-        this.stopRecording();
+        if (this.mediaRecorder && this.isRecording) {
+            console.log('[Recorder] Stopping, requesting data first...');
+            // Request final data before stopping
+            if (this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.requestData();
+            }
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+            this.onRecordingStateChange?.(false);
+        }
+        this.stopTimeUpdate();
     }
 
     /**
