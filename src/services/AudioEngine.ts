@@ -39,33 +39,48 @@ export class AudioEngine {
      * Load audio from a URL or base64 data
      */
     async loadAudio(source: string): Promise<void> {
+        console.log('[AudioEngine] loadAudio called, source length:', source.length);
+
         if (!this.audioContext) {
+            console.error('[AudioEngine] AudioContext not initialized');
             throw new Error('AudioContext not initialized');
         }
 
         // Resume context if suspended (browser autoplay policy)
         if (this.audioContext.state === 'suspended') {
+            console.log('[AudioEngine] Resuming suspended AudioContext');
             await this.audioContext.resume();
         }
 
         let arrayBuffer: ArrayBuffer;
 
-        if (source.startsWith('data:')) {
-            // Base64 encoded audio
-            const base64Data = source.split(',')[1];
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+        try {
+            if (source.startsWith('data:')) {
+                // Base64 encoded audio
+                console.log('[AudioEngine] Decoding base64 audio...');
+                const base64Data = source.split(',')[1];
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                arrayBuffer = bytes.buffer;
+                console.log('[AudioEngine] Base64 decoded, buffer size:', arrayBuffer.byteLength);
+            } else {
+                // URL
+                console.log('[AudioEngine] Fetching audio from URL...');
+                const response = await fetch(source);
+                arrayBuffer = await response.arrayBuffer();
+                console.log('[AudioEngine] Fetched audio, buffer size:', arrayBuffer.byteLength);
             }
-            arrayBuffer = bytes.buffer;
-        } else {
-            // URL
-            const response = await fetch(source);
-            arrayBuffer = await response.arrayBuffer();
-        }
 
-        this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            console.log('[AudioEngine] Decoding audio data...');
+            this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            console.log('[AudioEngine] Audio decoded successfully, duration:', this.audioBuffer.duration);
+        } catch (error: any) {
+            console.error('[AudioEngine] Failed to load/decode audio:', error);
+            throw new Error(`Failed to decode audio: ${error.message}. The audio format may not be supported.`);
+        }
     }
 
     /**
