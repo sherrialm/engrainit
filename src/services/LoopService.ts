@@ -46,7 +46,7 @@ function docToLoop(docData: DocumentData, id: string): Loop {
 export async function getLoops(userId: string): Promise<Loop[]> {
     if (!db) throw new Error('Firestore not initialized');
 
-    const loopsRef = collection(db, 'users', userId, 'loops');
+    const loopsRef = collection(db!, 'users', userId, 'loops');
     const q = query(loopsRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
 
@@ -59,7 +59,7 @@ export async function getLoops(userId: string): Promise<Loop[]> {
 export async function getLoopsByCategory(userId: string, category: LoopCategory): Promise<Loop[]> {
     if (!db) throw new Error('Firestore not initialized');
 
-    const loopsRef = collection(db, 'users', userId, 'loops');
+    const loopsRef = collection(db!, 'users', userId, 'loops');
     const q = query(
         loopsRef,
         where('category', '==', category),
@@ -76,7 +76,7 @@ export async function getLoopsByCategory(userId: string, category: LoopCategory)
 export async function getLoop(userId: string, loopId: string): Promise<Loop | null> {
     if (!db) throw new Error('Firestore not initialized');
 
-    const loopRef = doc(db, 'users', userId, 'loops', loopId);
+    const loopRef = doc(db!, 'users', userId, 'loops', loopId);
     const snapshot = await getDoc(loopRef);
 
     if (!snapshot.exists()) return null;
@@ -93,7 +93,7 @@ export async function createLoop(
 ): Promise<Loop> {
     if (!db) throw new Error('Firestore not initialized');
 
-    const loopsRef = collection(db, 'users', userId, 'loops');
+    const loopsRef = collection(db!, 'users', userId, 'loops');
     const now = Timestamp.now();
 
     const docRef = await addDoc(loopsRef, {
@@ -124,7 +124,7 @@ export async function updateLoop(
 ): Promise<void> {
     if (!db) throw new Error('Firestore not initialized');
 
-    const loopRef = doc(db, 'users', userId, 'loops', loopId);
+    const loopRef = doc(db!, 'users', userId, 'loops', loopId);
 
     await updateDoc(loopRef, {
         ...updates,
@@ -150,7 +150,7 @@ export async function deleteLoop(userId: string, loopId: string): Promise<void> 
         }
     }
 
-    const loopRef = doc(db, 'users', userId, 'loops', loopId);
+    const loopRef = doc(db!, 'users', userId, 'loops', loopId);
     await deleteDoc(loopRef);
 }
 

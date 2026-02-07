@@ -31,7 +31,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signIn: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await signInWithEmailAndPassword(auth!, email, password);
             set({ isLoading: false });
         } catch (err: any) {
             set({
@@ -45,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signUp: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            await createUserWithEmailAndPassword(auth!, email, password);
             set({ isLoading: false });
         } catch (err: any) {
             set({
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signOut: async () => {
         set({ isLoading: true, error: null });
         try {
-            await firebaseSignOut(auth);
+            await firebaseSignOut(auth!);
             set({ user: null, isLoading: false });
         } catch (err: any) {
             set({
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearError: () => set({ error: null }),
 
     initializeAuth: () => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth!, (user) => {
             set({ user, isInitialized: true, isLoading: false });
         });
         return unsubscribe;
