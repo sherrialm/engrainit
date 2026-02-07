@@ -34,10 +34,14 @@ export default function LoginPage() {
         try {
             if (isSignUp) {
                 await signUp(email, password);
+                // New users go to onboarding
+                router.push('/onboarding');
             } else {
                 await signIn(email, password);
+                // Returning users check if they've seen onboarding
+                const hasSeenOnboarding = localStorage.getItem('engrainit_onboarding_complete');
+                router.push(hasSeenOnboarding ? '/app' : '/onboarding');
             }
-            router.push('/app');
         } catch {
             // Error is handled in store
         }
