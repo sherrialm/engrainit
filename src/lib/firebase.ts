@@ -1,7 +1,7 @@
 // Firebase configuration
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { initializeFirestore, Firestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -26,8 +26,17 @@ if (typeof window !== 'undefined') {
     try {
         app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
         auth = getAuth(app);
-        db = getFirestore(app);
+
+        // Initialize Firestore with long polling to avoid WebSocket issues
+        // This can fix connection issues in deployed environments
+        if (!getApps().length || !db) {
+            db = initializeFirestore(app, {
+                experimentalForceLongPolling: true,
+            });
+        }
+
         storage = getStorage(app);
+        console.log('[Firebase] Initialized successfully with long polling enabled');
     } catch (error) {
         console.error('Firebase initialization error:', error);
     }
