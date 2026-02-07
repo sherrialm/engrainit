@@ -1,7 +1,7 @@
 // Firebase configuration
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { initializeFirestore, Firestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -14,8 +14,6 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase - safe for both client and server
-// SSR/Server: exports will be undefined (don't use on server)
-// Client: will be properly initialized
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
@@ -24,19 +22,14 @@ let storage: FirebaseStorage | undefined;
 // Only initialize on client-side
 if (typeof window !== 'undefined') {
     try {
+        // Initialize Firebase app
         app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
         auth = getAuth(app);
-
-        // Initialize Firestore with long polling to avoid WebSocket issues
-        // This can fix connection issues in deployed environments
-        if (!getApps().length || !db) {
-            db = initializeFirestore(app, {
-                experimentalForceLongPolling: true,
-            });
-        }
-
+        db = getFirestore(app);
         storage = getStorage(app);
-        console.log('[Firebase] Initialized successfully with long polling enabled');
+
+        console.log('[Firebase] Initialized. Project:', firebaseConfig.projectId);
+        console.log('[Firebase] Auth domain:', firebaseConfig.authDomain);
     } catch (error) {
         console.error('Firebase initialization error:', error);
     }
