@@ -41,14 +41,21 @@ function docToLoop(docData: DocumentData, id: string): Loop {
 }
 
 /**
- * Get all loops for a user
+ * Get all loops for a user with timeout to prevent infinite hangs
  */
 export async function getLoops(userId: string): Promise<Loop[]> {
     if (!db) throw new Error('Firestore not initialized');
 
     const loopsRef = collection(db!, 'users', userId, 'loops');
     const q = query(loopsRef, orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
+
+    // Add timeout to prevent hanging operations
+    const timeoutMs = 15000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore fetch timed out. Please refresh the page.')), timeoutMs)
+    );
+
+    const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
 
     return snapshot.docs.map(doc => docToLoop(doc.data(), doc.id));
 }
@@ -85,7 +92,7 @@ export async function getLoop(userId: string, loopId: string): Promise<Loop | nu
 }
 
 /**
- * Create a new loop
+ * Create a new loop with timeout to prevent infinite hangs
  */
 export async function createLoop(
     userId: string,
@@ -96,13 +103,21 @@ export async function createLoop(
     const loopsRef = collection(db!, 'users', userId, 'loops');
     const now = Timestamp.now();
 
-    const docRef = await addDoc(loopsRef, {
+    // Add timeout to prevent hanging operations
+    const timeoutMs = 15000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore operation timed out. Please check your connection and try again.')), timeoutMs)
+    );
+
+    const addDocPromise = addDoc(loopsRef, {
         ...loop,
         userId,
         createdAt: now,
         updatedAt: now,
         playCount: 0,
     });
+
+    const docRef = await Promise.race([addDocPromise, timeoutPromise]);
 
     return {
         ...loop,
