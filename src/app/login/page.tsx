@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 // Check if sign-ups are allowed (defaults to true if not set)
 const ALLOW_SIGNUPS = process.env.NEXT_PUBLIC_ALLOW_SIGNUPS !== 'false';
@@ -14,9 +16,23 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [resetSent, setResetSent] = useState(false);
 
     const { signIn, signUp, isLoading, error, clearError } = useAuthStore();
     const router = useRouter();
+
+    const handleForgotPassword = async () => {
+        if (!email.trim()) {
+            alert('Please enter your email address first, then click Forgot Password.');
+            return;
+        }
+        try {
+            await sendPasswordResetEmail(auth!, email);
+            setResetSent(true);
+        } catch (err: any) {
+            alert('Could not send reset email. Please check your email address.');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -85,7 +101,7 @@ export default function LoginPage() {
                     <form onSubmit={handleSubmit} className="space-y-5">
                         {/* Email */}
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                            <label htmlFor="email" className="block text-sm font-medium text-forest-600 mb-2">
                                 Email
                             </label>
                             <input
@@ -102,7 +118,7 @@ export default function LoginPage() {
 
                         {/* Password */}
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                            <label htmlFor="password" className="block text-sm font-medium text-forest-600 mb-2">
                                 Password
                             </label>
                             <input
@@ -116,12 +132,24 @@ export default function LoginPage() {
                                 minLength={6}
                                 autoComplete={isSignUp ? 'new-password' : 'current-password'}
                             />
+                            {!isSignUp && (
+                                <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    className="text-xs text-forest-500 hover:text-forest-700 mt-1 hover:underline"
+                                >
+                                    Forgot password?
+                                </button>
+                            )}
+                            {resetSent && (
+                                <p className="text-xs text-green-600 mt-1">✅ Reset email sent! Check your inbox.</p>
+                            )}
                         </div>
 
                         {/* Confirm Password (Sign Up only) */}
                         {isSignUp && (
                             <div>
-                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-forest-600 mb-2">
                                     Confirm Password
                                 </label>
                                 <input
@@ -143,7 +171,7 @@ export default function LoginPage() {
 
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
                                 {error}
                             </div>
                         )}
@@ -170,18 +198,18 @@ export default function LoginPage() {
 
                     {/* Toggle Mode - Only show if sign-ups are allowed */}
                     {ALLOW_SIGNUPS && (
-                        <div className="mt-6 text-center text-sm text-ink-500 dark:text-paper-500">
+                        <div className="mt-6 text-center text-sm text-forest-500">
                             {isSignUp ? (
                                 <>
                                     Already have an account?{' '}
-                                    <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
+                                    <button onClick={toggleMode} className="text-forest-700 font-medium hover:underline">
                                         Sign in
                                     </button>
                                 </>
                             ) : (
                                 <>
                                     Don&apos;t have an account?{' '}
-                                    <button onClick={toggleMode} className="text-ink-900 dark:text-paper-100 font-medium hover:underline">
+                                    <button onClick={toggleMode} className="text-forest-700 font-medium hover:underline">
                                         Create one
                                     </button>
                                 </>
@@ -192,7 +220,7 @@ export default function LoginPage() {
 
                 {/* Back to Home */}
                 <div className="mt-6 text-center">
-                    <Link href="/" className="text-sm text-ink-400 dark:text-paper-600 hover:text-ink-600 dark:hover:text-paper-400">
+                    <Link href="/" className="text-sm text-forest-400 hover:text-forest-600">
                         ← Back to home
                     </Link>
                 </div>
