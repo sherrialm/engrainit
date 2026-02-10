@@ -25,22 +25,22 @@ export default function AppDashboard() {
         <div className="max-w-4xl mx-auto px-4 py-8">
             {/* Page Header */}
             <div className="text-center mb-10">
-                <h2 className="font-serif text-3xl font-bold text-ink-900 dark:text-paper-100 mb-2">
+                <h2 className="font-serif text-3xl font-bold text-forest-700 mb-2">
                     Create a New Loop
                 </h2>
-                <p className="text-ink-500 dark:text-paper-500">
+                <p className="text-forest-500">
                     Type, upload a document, or record your voice to create a mental imprint.
                 </p>
             </div>
 
             {/* Tab Selector */}
             <div className="flex justify-center mb-8">
-                <div className="inline-flex bg-paper-200 dark:bg-ink-800 rounded-lg p-1 flex-wrap justify-center gap-1">
+                <div className="inline-flex bg-parchment-300 rounded-lg p-1 flex-wrap justify-center gap-1">
                     <button
                         onClick={() => setActiveTab('text')}
                         className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'text'
-                            ? 'bg-white dark:bg-ink-700 text-ink-900 dark:text-paper-100 shadow-sm'
-                            : 'text-ink-500 dark:text-paper-500 hover:text-ink-700 dark:hover:text-paper-300'
+                            ? 'bg-white text-forest-700 shadow-sm'
+                            : 'text-forest-500 hover:text-forest-600'
                             }`}
                     >
                         ✍️ Text
@@ -48,8 +48,8 @@ export default function AppDashboard() {
                     <button
                         onClick={() => setActiveTab('upload')}
                         className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'upload'
-                            ? 'bg-white dark:bg-ink-700 text-ink-900 dark:text-paper-100 shadow-sm'
-                            : 'text-ink-500 dark:text-paper-500 hover:text-ink-700 dark:hover:text-paper-300'
+                            ? 'bg-white text-forest-700 shadow-sm'
+                            : 'text-forest-500 hover:text-forest-600'
                             }`}
                     >
                         📄 Document
@@ -57,8 +57,8 @@ export default function AppDashboard() {
                     <button
                         onClick={() => setActiveTab('record')}
                         className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'record'
-                            ? 'bg-white dark:bg-ink-700 text-ink-900 dark:text-paper-100 shadow-sm'
-                            : 'text-ink-500 dark:text-paper-500 hover:text-ink-700 dark:hover:text-paper-300'
+                            ? 'bg-white text-forest-700 shadow-sm'
+                            : 'text-forest-500 hover:text-forest-600'
                             }`}
                     >
                         🎙️ Voice
@@ -79,7 +79,7 @@ export default function AppDashboard() {
 
             {/* Quick Access to Vault */}
             <div className="text-center mt-8">
-                <Link href="/app/vault" className="text-ink-500 dark:text-paper-500 hover:text-ink-700 dark:hover:text-paper-300 text-sm">
+                <Link href="/app/vault" className="text-forest-500 hover:text-forest-600 text-sm">
                     View your saved loops in The Vault →
                 </Link>
             </div>
@@ -230,7 +230,7 @@ function DocumentUploadPanel() {
         <div className="space-y-6">
             {/* File Upload Area */}
             {!extractedText && (
-                <div className="border-2 border-dashed border-ink-200 dark:border-ink-700 rounded-xl p-8 text-center">
+                <div className="border-2 border-dashed border-forest-200 rounded-xl p-8 text-center">
                     <input
                         type="file"
                         accept=".pdf,.docx,.txt"
@@ -244,19 +244,19 @@ function DocumentUploadPanel() {
                     >
                         {isExtracting ? (
                             <div className="space-y-3">
-                                <div className="animate-spin h-12 w-12 border-4 border-ink-200 border-t-ink-900 dark:border-ink-700 dark:border-t-paper-100 rounded-full mx-auto"></div>
-                                <p className="text-ink-500 dark:text-paper-500">Extracting text...</p>
+                                <div className="animate-spin h-12 w-12 border-4 border-forest-200 border-t-forest-600 rounded-full mx-auto"></div>
+                                <p className="text-forest-500">Extracting text...</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 <div className="text-5xl">📄</div>
-                                <p className="font-medium text-ink-700 dark:text-paper-300">
+                                <p className="font-medium text-forest-600">
                                     Upload a document
                                 </p>
-                                <p className="text-sm text-ink-400 dark:text-paper-600">
+                                <p className="text-sm text-forest-400">
                                     PDF, DOCX, or TXT files supported
                                 </p>
-                                <p className="text-xs text-ink-300 dark:text-paper-700">
+                                <p className="text-xs text-forest-300">
                                     Click or drag to upload
                                 </p>
                             </div>
@@ -268,29 +268,29 @@ function DocumentUploadPanel() {
             {/* Extracted Text Preview */}
             {extractedText && !generatedAudio && (
                 <>
-                    <div className="bg-paper-200 dark:bg-ink-800 rounded-lg p-4">
+                    <div className="bg-parchment-300 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-ink-600 dark:text-paper-400">
+                            <span className="text-sm font-medium text-forest-600">
                                 📄 {file?.name}
                             </span>
                             <button
                                 onClick={resetForm}
-                                className="text-xs text-ink-400 hover:text-ink-600 dark:text-paper-600 dark:hover:text-paper-400"
+                                className="text-xs text-forest-400 hover:text-forest-600"
                             >
                                 Change file
                             </button>
                         </div>
-                        <p className="text-sm text-ink-500 dark:text-paper-500 line-clamp-4">
+                        <p className="text-sm text-forest-500 line-clamp-4">
                             {extractedText}
                         </p>
-                        <p className="text-xs text-ink-400 dark:text-paper-600 mt-2">
+                        <p className="text-xs text-forest-400 mt-2">
                             {extractedText.length} characters (first 500 will be converted to audio)
                         </p>
                     </div>
 
                     {/* Title */}
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Loop Title
                         </label>
                         <input
@@ -304,7 +304,7 @@ function DocumentUploadPanel() {
 
                     {/* Category */}
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Category
                         </label>
                         <select
@@ -321,12 +321,18 @@ function DocumentUploadPanel() {
 
                     {/* Voice Select */}
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Voice
                         </label>
                         <select
                             value={voiceId}
-                            onChange={(e) => setVoiceId(e.target.value)}
+                            onChange={(e) => {
+                                setVoiceId(e.target.value);
+                                if (generatedAudio) {
+                                    setGeneratedAudio(null);
+                                    stop();
+                                }
+                            }}
                             className="input-field"
                         >
                             {VOICE_OPTIONS.map((voice) => (
@@ -339,7 +345,7 @@ function DocumentUploadPanel() {
 
                     {/* Interval */}
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Repetition Interval: {interval === 0 ? 'Continuous' : interval >= 60 ? `${Math.floor(interval / 60)}m ${interval % 60}s` : `${interval}s`}
                         </label>
                         <div className="flex flex-wrap gap-2 mb-3">
@@ -349,8 +355,8 @@ function DocumentUploadPanel() {
                                     type="button"
                                     onClick={() => setIntervalValue(preset)}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${interval === preset
-                                        ? 'bg-ink-900 text-paper-100 dark:bg-paper-100 dark:text-ink-900'
-                                        : 'bg-paper-200 text-ink-600 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-400'
+                                        ? 'bg-forest-700 text-parchment-100'
+                                        : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                         }`}
                                 >
                                     {preset >= 60 ? `${preset / 60}m` : `${preset}s`}
@@ -364,7 +370,7 @@ function DocumentUploadPanel() {
                             min={0}
                             max={300}
                             step={5}
-                            className="w-full accent-ink-900 dark:accent-paper-100"
+                            className="w-full accent-forest-600"
                         />
                     </div>
                 </>
@@ -372,7 +378,7 @@ function DocumentUploadPanel() {
 
             {/* Error */}
             {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
                     {error}
                 </div>
             )}
@@ -406,7 +412,7 @@ function DocumentUploadPanel() {
                             }}
                             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${isSpacedActive
                                 ? 'bg-green-500 text-white hover:bg-green-600'
-                                : 'bg-paper-200 text-ink-700 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-300 dark:hover:bg-ink-600'
+                                : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                 }`}
                         >
                             🔁 {isSpacedActive ? 'Spaced Loop ON' : 'Spaced Loop'}
@@ -416,7 +422,7 @@ function DocumentUploadPanel() {
                                 stop();
                                 setIsSpacedActive(false);
                             }}
-                            className="p-2 rounded-lg bg-paper-200 text-ink-500 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-500 dark:hover:bg-ink-600 transition-colors"
+                            className="p-2 rounded-lg bg-parchment-300 text-forest-500 hover:bg-parchment-400 transition-colors"
                             title="Stop"
                         >
                             ⏹️
@@ -551,7 +557,7 @@ function TextToSpeechPanel() {
         <div className="space-y-6">
             {/* Title Input */}
             <div>
-                <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                <label className="block text-sm font-medium text-forest-600 mb-2">
                     Loop Title
                 </label>
                 <input
@@ -565,7 +571,7 @@ function TextToSpeechPanel() {
 
             {/* Text Input */}
             <div>
-                <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                <label className="block text-sm font-medium text-forest-600 mb-2">
                     Your Text
                 </label>
                 <textarea
@@ -575,19 +581,26 @@ function TextToSpeechPanel() {
                     placeholder="Enter the text you want to engrave in your mind..."
                     maxLength={500}
                 />
-                <p className={`text-xs mt-1 ${text.length >= 480 ? 'text-red-500 font-medium' : text.length >= 400 ? 'text-yellow-500' : 'text-ink-400 dark:text-paper-600'}`}>
+                <p className={`text-xs mt-1 ${text.length >= 480 ? 'text-red-500 font-medium' : text.length >= 400 ? 'text-yellow-500' : 'text-forest-400'}`}>
                     {text.length}/500 characters{text.length >= 480 ? ' - Near limit!' : text.length >= 400 ? ' - Approaching limit' : ''}
                 </p>
             </div>
 
             {/* Voice Select */}
             <div>
-                <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                <label className="block text-sm font-medium text-forest-600 mb-2">
                     Voice
                 </label>
                 <select
                     value={voiceId}
-                    onChange={(e) => setVoiceId(e.target.value)}
+                    onChange={(e) => {
+                        setVoiceId(e.target.value);
+                        // Clear generated audio when voice changes - forces re-generate
+                        if (generatedAudio) {
+                            setGeneratedAudio(null);
+                            stop();
+                        }
+                    }}
                     className="input-field"
                 >
                     {VOICE_OPTIONS.map((voice) => (
@@ -596,11 +609,14 @@ function TextToSpeechPanel() {
                         </option>
                     ))}
                 </select>
+                {generatedAudio === null && text.trim() && (
+                    <p className="text-xs text-amber-600 mt-1">⚠️ Voice changed — click Generate to hear the new voice</p>
+                )}
             </div>
 
             {/* Category Select */}
             <div>
-                <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                <label className="block text-sm font-medium text-forest-600 mb-2">
                     Category
                 </label>
                 <select
@@ -617,7 +633,7 @@ function TextToSpeechPanel() {
 
             {/* Spaced Repetition Interval */}
             <div>
-                <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                <label className="block text-sm font-medium text-forest-600 mb-2">
                     Repetition Interval: {interval === 0 ? 'Continuous' : interval >= 60 ? `${Math.floor(interval / 60)}m ${interval % 60}s` : `${interval}s`}
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -627,8 +643,8 @@ function TextToSpeechPanel() {
                             type="button"
                             onClick={() => setInterval(preset)}
                             className={`px-3 py-1 text-xs rounded-full transition-colors ${interval === preset
-                                ? 'bg-ink-900 text-paper-100 dark:bg-paper-100 dark:text-ink-900'
-                                : 'bg-paper-200 text-ink-600 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-400'
+                                ? 'bg-forest-700 text-parchment-100'
+                                : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                 }`}
                         >
                             {preset >= 60 ? `${preset / 60}m` : `${preset}s`}
@@ -642,9 +658,9 @@ function TextToSpeechPanel() {
                     min={0}
                     max={300}
                     step={5}
-                    className="w-full accent-ink-900 dark:accent-paper-100"
+                    className="w-full accent-forest-600"
                 />
-                <div className="flex justify-between text-xs text-ink-400 dark:text-paper-600">
+                <div className="flex justify-between text-xs text-forest-400">
                     <span>Continuous</span>
                     <span>2m 30s</span>
                     <span>5m</span>
@@ -653,7 +669,7 @@ function TextToSpeechPanel() {
 
             {/* Error Message */}
             {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
                     {error}
                 </div>
             )}
@@ -692,7 +708,7 @@ function TextToSpeechPanel() {
                                 }}
                                 className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${isSpacedActive
                                     ? 'bg-green-500 text-white hover:bg-green-600'
-                                    : 'bg-paper-200 text-ink-700 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-300 dark:hover:bg-ink-600'
+                                    : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                     }`}
                             >
                                 🔁 {isSpacedActive ? 'Spaced Loop ON' : 'Start Spaced Loop'}
@@ -702,7 +718,7 @@ function TextToSpeechPanel() {
                                     stop();
                                     setIsSpacedActive(false);
                                 }}
-                                className="p-2 rounded-lg bg-paper-200 text-ink-500 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-500 dark:hover:bg-ink-600 transition-colors"
+                                className="p-2 rounded-lg bg-parchment-300 text-forest-500 hover:bg-parchment-400 transition-colors"
                                 title="Stop"
                             >
                                 ⏹️
@@ -889,11 +905,11 @@ function VoiceRecordingPanel() {
                     <>
                         <button
                             onClick={startRecording}
-                            className="w-28 h-28 rounded-full bg-ink-900 dark:bg-paper-100 flex items-center justify-center transition-all mx-auto hover:scale-105"
+                            className="w-28 h-28 rounded-full bg-forest-700 flex items-center justify-center transition-all mx-auto hover:scale-105"
                         >
                             <span className="text-5xl">🎙️</span>
                         </button>
-                        <p className="mt-4 text-ink-600 dark:text-paper-400 font-medium">
+                        <p className="mt-4 text-forest-600 font-medium">
                             Tap to start recording
                         </p>
                     </>
@@ -904,7 +920,7 @@ function VoiceRecordingPanel() {
                         <div className="w-28 h-28 rounded-full bg-red-500 flex items-center justify-center mx-auto audio-pulse">
                             <span className="text-5xl">🎙️</span>
                         </div>
-                        <p className="mt-4 text-red-600 dark:text-red-400 font-bold text-xl">
+                        <p className="mt-4 text-red-600 font-bold text-xl">
                             Recording... {formatTime(recordingTime)}
                         </p>
                         <button
@@ -921,7 +937,7 @@ function VoiceRecordingPanel() {
                         <div className="w-28 h-28 rounded-full bg-green-500 flex items-center justify-center mx-auto">
                             <span className="text-5xl">✅</span>
                         </div>
-                        <p className="mt-4 text-green-600 dark:text-green-400 font-medium">
+                        <p className="mt-4 text-green-600 font-medium">
                             Recording complete! ({formatTime(recordingTime)})
                         </p>
                     </>
@@ -932,7 +948,7 @@ function VoiceRecordingPanel() {
             {recordedAudio && (
                 <>
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Title
                         </label>
                         <input
@@ -945,7 +961,7 @@ function VoiceRecordingPanel() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Category
                         </label>
                         <select
@@ -961,7 +977,7 @@ function VoiceRecordingPanel() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-ink-700 dark:text-paper-300 mb-2">
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
                             Interval: {interval === 0 ? 'Continuous' : interval >= 60 ? `${Math.floor(interval / 60)}m ${interval % 60}s` : `${interval}s`}
                         </label>
                         <div className="flex flex-wrap gap-2 mb-3">
@@ -971,8 +987,8 @@ function VoiceRecordingPanel() {
                                     type="button"
                                     onClick={() => setInterval(preset)}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${interval === preset
-                                        ? 'bg-ink-900 text-paper-100 dark:bg-paper-100 dark:text-ink-900'
-                                        : 'bg-paper-200 text-ink-600 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-400'
+                                        ? 'bg-forest-700 text-parchment-100'
+                                        : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                         }`}
                                 >
                                     {preset >= 60 ? `${preset / 60}m` : `${preset}s`}
@@ -986,7 +1002,7 @@ function VoiceRecordingPanel() {
                             min={0}
                             max={300}
                             step={5}
-                            className="w-full accent-ink-900 dark:accent-paper-100"
+                            className="w-full accent-forest-600"
                         />
                     </div>
                 </>
@@ -994,7 +1010,7 @@ function VoiceRecordingPanel() {
 
             {/* Error */}
             {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
                     {error}
                 </div>
             )}
@@ -1018,7 +1034,7 @@ function VoiceRecordingPanel() {
                             }}
                             className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${isSpacedActive
                                 ? 'bg-green-500 text-white hover:bg-green-600'
-                                : 'bg-paper-200 text-ink-700 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-300 dark:hover:bg-ink-600'
+                                : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
                                 }`}
                         >
                             🔁 {isSpacedActive ? 'Spaced Loop ON' : 'Spaced Loop'}
@@ -1028,7 +1044,7 @@ function VoiceRecordingPanel() {
                                 stop();
                                 setIsSpacedActive(false);
                             }}
-                            className="p-2 rounded-lg bg-paper-200 text-ink-500 hover:bg-paper-300 dark:bg-ink-700 dark:text-paper-500 dark:hover:bg-ink-600 transition-colors"
+                            className="p-2 rounded-lg bg-parchment-300 text-forest-500 hover:bg-parchment-400 transition-colors"
                             title="Stop"
                         >
                             ⏹️

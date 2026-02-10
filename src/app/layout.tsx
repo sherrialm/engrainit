@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ToastProvider } from '@/components/Toast';
+import ConsentBanner from '@/components/ConsentBanner';
 
 export const metadata: Metadata = {
     title: 'EngrainIt - Mental Engraving through Intentional Repetition',
@@ -15,9 +16,10 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className="min-h-screen bg-paper-100 dark:bg-ink-900 antialiased">
+            <body className="min-h-screen bg-parchment-200 antialiased">
                 <ToastProvider>
                     {children}
+                    <ConsentBanner />
                 </ToastProvider>
             </body>
         </html>
