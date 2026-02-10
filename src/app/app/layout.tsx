@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
+import { useTierStore } from '@/stores/tierStore';
+import { TIER_DISPLAY } from '@/config/tiers';
 
 export default function AppLayout({
     children,
@@ -11,6 +13,7 @@ export default function AppLayout({
     children: React.ReactNode;
 }) {
     const { user, isInitialized, initializeAuth, signOut } = useAuthStore();
+    const { tier, isLoaded, loadProfile } = useTierStore();
     const router = useRouter();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -19,6 +22,13 @@ export default function AppLayout({
         const unsubscribe = initializeAuth();
         return () => unsubscribe();
     }, [initializeAuth]);
+
+    // Load tier profile when user is authenticated
+    useEffect(() => {
+        if (user?.uid && user?.email) {
+            loadProfile(user.uid, user.email);
+        }
+    }, [user, loadProfile]);
 
     // Redirect to login if not authenticated
     useEffect(() => {
@@ -74,6 +84,11 @@ export default function AppLayout({
 
                         {/* Desktop Navigation */}
                         <nav className="hidden sm:flex items-center gap-4">
+                            {isLoaded && (
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-600">
+                                    {TIER_DISPLAY[tier].emoji} {TIER_DISPLAY[tier].name}
+                                </span>
+                            )}
                             <a href="/app" className="btn-ghost text-sm">
                                 Create
                             </a>

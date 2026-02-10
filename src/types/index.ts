@@ -67,3 +67,31 @@ export interface TTSResponse {
     audioContent: string; // Base64 encoded audio
     duration: number;
 }
+
+/**
+ * User tier levels
+ */
+export type UserTier = 'free' | 'core' | 'pro';
+
+/**
+ * Tier limits configuration
+ */
+export interface TierLimits {
+    maxLoops: number;           // Max saved loops
+    maxGenerationsPerMonth: number;
+    maxTextLength: number;      // Character limit for TTS
+    availableVoices: string[];  // Voice IDs allowed
+    hasDocumentUpload: boolean;
+    hasBackgroundSounds: boolean;
+}
+
+/**
+ * User profile stored in Firestore
+ */
+export interface UserProfileData {
+    email: string;
+    tier: UserTier;
+    generationsUsed: number;
+    generationsResetDate: Date;
+    createdAt: Date;
+}

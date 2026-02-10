@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useAudioStore } from '@/stores/audioStore';
 import { useVaultStore } from '@/stores/vaultStore';
+import { useTierStore } from '@/stores/tierStore';
 import { generateSpeech } from '@/services/TTSService';
 import { getRecorderService, blobToDataUrl } from '@/services/RecorderService';
 import { uploadBase64Audio } from '@/services/LoopService';
 import { LoopCategory } from '@/types';
 import { AudioPlayerSkeleton } from '@/components/Skeleton';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 export default function AppDashboard() {
     const [activeTab, setActiveTab] = useState<'text' | 'record' | 'upload'>('text');
@@ -45,15 +47,7 @@ export default function AppDashboard() {
                     >
                         ✍️ Text
                     </button>
-                    <button
-                        onClick={() => setActiveTab('upload')}
-                        className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'upload'
-                            ? 'bg-white text-forest-700 shadow-sm'
-                            : 'text-forest-500 hover:text-forest-600'
-                            }`}
-                    >
-                        📄 Document
-                    </button>
+                    <UploadTabButton activeTab={activeTab} setActiveTab={setActiveTab} />
                     <button
                         onClick={() => setActiveTab('record')}
                         className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'record'
@@ -457,12 +451,31 @@ const VOICE_OPTIONS = [
     { id: 'parent', label: '💝 Parent', description: 'Soft, warm' },
 ];
 
+// Upload tab button with tier lock
+function UploadTabButton({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: 'text' | 'record' | 'upload') => void }) {
+    const { canUploadDocument } = useTierStore();
+    const allowed = canUploadDocument();
+
+    return (
+        <button
+            onClick={() => allowed ? setActiveTab('upload') : alert('Document upload is available on the Core plan and above.')}
+            className={`px-5 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'upload'
+                ? 'bg-white text-forest-700 shadow-sm'
+                : 'text-forest-500 hover:text-forest-600'
+                } ${!allowed ? 'opacity-50' : ''}`}
+        >
+            📄 Document {!allowed && '🔒'}
+        </button>
+    );
+}
+
 // Text-to-Speech Panel Component
 function TextToSpeechPanel() {
     const router = useRouter();
     const { user } = useAuthStore();
     const { loadFromBase64, currentLoop, isPlaying, toggle, stop, setInterval: setAudioInterval, startSpacedRepetition, stopSpacedRepetition } = useAudioStore();
-    const { addLoop } = useVaultStore();
+    const { addLoop, loops } = useVaultStore();
+    const { canGenerate, canSaveLoop, canUseVoice, getMaxTextLength, getRemainingGenerations, incrementGenerations, tier } = useTierStore();
 
     const [text, setText] = useState('');
     const [title, setTitle] = useState('');
@@ -473,9 +486,24 @@ function TextToSpeechPanel() {
     const [error, setError] = useState<string | null>(null);
     const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
     const [isSpacedActive, setIsSpacedActive] = useState(false);
+    const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
 
     const handleGenerate = async () => {
         if (!text.trim()) return;
+
+        // Tier checks
+        if (!canGenerate()) {
+            setShowUpgrade('generations');
+            return;
+        }
+        if (text.length > getMaxTextLength()) {
+            setError(`Your plan supports up to ${getMaxTextLength()} characters. You have ${text.length}.`);
+            return;
+        }
+        if (!canUseVoice(voiceId)) {
+            setShowUpgrade('voice');
+            return;
+        }
 
         setIsGenerating(true);
         setError(null);
@@ -499,6 +527,11 @@ function TextToSpeechPanel() {
             });
 
             setAudioInterval(interval);
+
+            // Increment generation counter
+            if (user?.uid) {
+                await incrementGenerations(user.uid);
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to generate speech');
         } finally {
