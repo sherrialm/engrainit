@@ -86,7 +86,8 @@ function DocumentUploadPanel() {
     const router = useRouter();
     const { user } = useAuthStore();
     const { loadFromBase64, currentLoop, isPlaying, toggle, stop, setInterval: setAudioInterval, startSpacedRepetition, stopSpacedRepetition } = useAudioStore();
-    const { addLoop } = useVaultStore();
+    const { addLoop, loops } = useVaultStore();
+    const { canGenerate, canSaveLoop, getMaxTextLength, incrementGenerations, tier } = useTierStore();
 
     const [file, setFile] = useState<File | null>(null);
     const [extractedText, setExtractedText] = useState('');
@@ -99,6 +100,7 @@ function DocumentUploadPanel() {
     const [error, setError] = useState<string | null>(null);
     const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
     const [isSpacedActive, setIsSpacedActive] = useState(false);
+    const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -140,6 +142,12 @@ function DocumentUploadPanel() {
     const handleGenerate = async () => {
         if (!extractedText.trim()) return;
 
+        // Tier check
+        if (!canGenerate()) {
+            setShowUpgrade('generations');
+            return;
+        }
+
         setIsGenerating(true);
         setError(null);
 
@@ -161,6 +169,11 @@ function DocumentUploadPanel() {
             });
 
             setAudioInterval(interval);
+
+            // Increment generation counter
+            if (user?.uid) {
+                await incrementGenerations(user.uid);
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to generate speech');
         } finally {
@@ -180,6 +193,12 @@ function DocumentUploadPanel() {
         if (!user?.uid) {
             console.error('[DocSave] User not authenticated');
             setError('Please sign in to save loops to your vault.');
+            return;
+        }
+
+        // Tier check: vault limit
+        if (!canSaveLoop(loops.length)) {
+            setShowUpgrade('loops');
             return;
         }
 
@@ -222,6 +241,13 @@ function DocumentUploadPanel() {
 
     return (
         <div className="space-y-6">
+            {/* Upgrade Prompt */}
+            {showUpgrade && (
+                <UpgradePrompt
+                    reason={showUpgrade as any}
+                    onDismiss={() => setShowUpgrade(null)}
+                />
+            )}
             {/* File Upload Area */}
             {!extractedText && (
                 <div className="border-2 border-dashed border-forest-200 rounded-xl p-8 text-center">
@@ -554,6 +580,12 @@ function TextToSpeechPanel() {
             return;
         }
 
+        // Tier check: vault limit
+        if (!canSaveLoop(loops.length)) {
+            setShowUpgrade('loops');
+            return;
+        }
+
         try {
             setIsGenerating(true);
             console.log('[SaveToVault] Uploading audio to Firebase Storage...');
@@ -809,6 +841,7 @@ function VoiceRecordingPanel() {
     const router = useRouter();
     const { user } = useAuthStore();
     const { loadFromBase64, isPlaying, toggle, stop, startSpacedRepetition, stopSpacedRepetition } = useAudioStore();
+    const { canSaveLoop } = useTierStore();
     const { addLoop } = useVaultStore();
 
     const [isRecording, setIsRecording] = useState(false);
@@ -905,6 +938,13 @@ function VoiceRecordingPanel() {
         if (!user?.uid) {
             console.error('[VoiceSave] User not authenticated');
             setError('Please sign in to save loops to your vault.');
+            return;
+        }
+
+        // Tier check: vault limit
+        const { loops } = useVaultStore.getState();
+        if (!canSaveLoop(loops.length)) {
+            setError('You\'ve reached the max saved loops for your plan. Upgrade to save more!');
             return;
         }
 
