@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/tts
  * 
- * Converts text to speech using Google Cloud Text-to-Speech API.
- * Returns base64-encoded MP3 audio.
+ * Converts text to speech using ElevenLabs API (primary) or Google Cloud TTS (fallback).
+ * Returns base64-encoded audio.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -26,72 +26,24 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const apiKey = process.env.GOOGLE_CLOUD_TTS_API_KEY;
+        // Try ElevenLabs first, fall back to Google TTS
+        const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
 
-        console.log('TTS API Request:', { textLength: text.length, voiceId, hasApiKey: !!apiKey });
-
-        if (!apiKey) {
-            console.error('GOOGLE_CLOUD_TTS_API_KEY not configured');
-            // Fallback: Return a placeholder response for development
-            return NextResponse.json({
-                audioContent: '', // Empty - will trigger fallback in client
-                duration: 0,
-                message: 'TTS API key not configured. Please add GOOGLE_CLOUD_TTS_API_KEY to .env.local',
-            });
+        if (elevenLabsKey) {
+            console.log('Using ElevenLabs TTS...');
+            return await elevenLabsTTS(text, voiceId, elevenLabsKey);
         }
 
-        // Process text for natural pauses
-        const processedText = processTextForSpeech(text);
-
-        console.log('Calling Google TTS API...');
-
-        // Google Cloud TTS API request
-        const ttsResponse = await fetch(
-            `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    input: {
-                        ssml: processedText,
-                    },
-                    voice: getVoiceConfig(voiceId),
-                    audioConfig: {
-                        audioEncoding: 'MP3',
-                        speakingRate: 0.95, // Slightly slower for memorization
-                        pitch: 0,
-                        effectsProfileId: ['handset-class-device'], // Optimized for clarity
-                    },
-                }),
-            }
-        );
-
-        if (!ttsResponse.ok) {
-            const errorData = await ttsResponse.json().catch(() => ({}));
-            console.error('Google TTS API error:', ttsResponse.status, errorData);
-            return NextResponse.json(
-                {
-                    error: `TTS API Error: ${errorData.error?.message || 'Unknown error'}`,
-                    code: 'TTS_API_ERROR',
-                    details: errorData
-                },
-                { status: 500 }
-            );
+        const googleKey = process.env.GOOGLE_CLOUD_TTS_API_KEY;
+        if (googleKey) {
+            console.log('Falling back to Google TTS...');
+            return await googleTTS(text, voiceId, googleKey);
         }
-
-        console.log('TTS API Success!');
-
-        const data = await ttsResponse.json();
-
-        // Estimate duration (rough calculation: ~150 words per minute)
-        const wordCount = text.split(/\s+/).length;
-        const estimatedDuration = (wordCount / 150) * 60;
 
         return NextResponse.json({
-            audioContent: `data:audio/mp3;base64,${data.audioContent}`,
-            duration: estimatedDuration,
+            audioContent: '',
+            duration: 0,
+            message: 'No TTS API key configured. Please add ELEVENLABS_API_KEY or GOOGLE_CLOUD_TTS_API_KEY to .env.local',
         });
     } catch (error) {
         console.error('TTS error:', error);
@@ -103,25 +55,123 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Process text into SSML for natural speech pauses
- * - Commas = short pause (200ms)
- * - Periods = long pause (500ms)
- * - New lines = paragraph break
+ * ElevenLabs voice mapping
+ * Maps our app's voice IDs to ElevenLabs voice IDs
+ */
+const ELEVENLABS_VOICES: Record<string, string> = {
+    sage: 'nPczCjzI2devNBz1zQrb',      // Brian - Deep, calm male
+    mentor: 'IKne3meq5aSn9XLyUdCD',     // Charlie - Warm, clear male
+    anchor: 'JBFqnCBsd6RMkjVDRZzb',     // George - Low, authoritative male
+    parent: 'EXAVITQu4vr4xnSDxMaL',     // Sarah - Soft, nurturing female
+};
+
+/**
+ * Generate speech using ElevenLabs API
+ */
+async function elevenLabsTTS(text: string, voiceId: string | undefined, apiKey: string) {
+    const elVoiceId = ELEVENLABS_VOICES[voiceId || 'sage'] || ELEVENLABS_VOICES.sage;
+
+    const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${elVoiceId}`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'xi-api-key': apiKey,
+            },
+            body: JSON.stringify({
+                text,
+                model_id: 'eleven_multilingual_v2',
+                voice_settings: {
+                    stability: 0.6,        // Slightly varied for natural feel
+                    similarity_boost: 0.8,  // Mostly consistent voice
+                    style: 0.3,             // Subtle expressiveness
+                    use_speaker_boost: true,
+                },
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('ElevenLabs API error:', response.status, errorText);
+        return NextResponse.json(
+            { error: `ElevenLabs API Error: ${errorText}`, code: 'TTS_API_ERROR' },
+            { status: 500 }
+        );
+    }
+
+    // ElevenLabs returns raw audio bytes (MP3 format)
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(audioBuffer).toString('base64');
+
+    // Estimate duration
+    const wordCount = text.split(/\s+/).length;
+    const estimatedDuration = (wordCount / 150) * 60;
+
+    return NextResponse.json({
+        audioContent: `data:audio/mp3;base64,${base64Audio}`,
+        duration: estimatedDuration,
+    });
+}
+
+/**
+ * Generate speech using Google Cloud TTS API (fallback)
+ */
+async function googleTTS(text: string, voiceId: string | undefined, apiKey: string) {
+    const processedText = processTextForSpeech(text);
+
+    const ttsResponse = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                input: { ssml: processedText },
+                voice: getGoogleVoiceConfig(voiceId),
+                audioConfig: {
+                    audioEncoding: 'MP3',
+                    speakingRate: 0.95,
+                    pitch: 0,
+                    effectsProfileId: ['handset-class-device'],
+                },
+            }),
+        }
+    );
+
+    if (!ttsResponse.ok) {
+        const errorData = await ttsResponse.json().catch(() => ({}));
+        console.error('Google TTS API error:', ttsResponse.status, errorData);
+        return NextResponse.json(
+            { error: `TTS API Error: ${errorData.error?.message || 'Unknown error'}`, code: 'TTS_API_ERROR' },
+            { status: 500 }
+        );
+    }
+
+    const data = await ttsResponse.json();
+    const wordCount = text.split(/\s+/).length;
+    const estimatedDuration = (wordCount / 150) * 60;
+
+    return NextResponse.json({
+        audioContent: `data:audio/mp3;base64,${data.audioContent}`,
+        duration: estimatedDuration,
+    });
+}
+
+/**
+ * Process text into SSML for Google TTS natural pauses
  */
 function processTextForSpeech(text: string): string {
     let ssml = text
-        // Escape special characters
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // Add pauses
         .replace(/,\s*/g, ', <break time="200ms"/>')
         .replace(/\.\s*/g, '. <break time="500ms"/>')
         .replace(/!\s*/g, '! <break time="400ms"/>')
         .replace(/\?\s*/g, '? <break time="400ms"/>')
         .replace(/;\s*/g, '; <break time="300ms"/>')
         .replace(/:\s*/g, ': <break time="250ms"/>')
-        // Handle new lines as paragraph breaks
         .replace(/\n\n/g, ' <break time="800ms"/> ')
         .replace(/\n/g, ' <break time="400ms"/> ');
 
@@ -129,40 +179,14 @@ function processTextForSpeech(text: string): string {
 }
 
 /**
- * Get voice configuration based on voice ID
- * Future: Map to different voice profiles (Sage, Mentor, Anchor, Parent)
+ * Google TTS voice config
  */
-function getVoiceConfig(voiceId?: string): object {
-    // Default voice configuration
-    const defaultVoice = {
-        languageCode: 'en-US',
-        name: 'en-US-Neural2-D', // Deep, calm male voice
-        ssmlGender: 'MALE',
-    };
-
-    // Voice profiles for future implementation
+function getGoogleVoiceConfig(voiceId?: string): object {
     const voiceProfiles: Record<string, object> = {
-        sage: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-D', // Deep, calm
-            ssmlGender: 'MALE',
-        },
-        mentor: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-J', // Bright, clear
-            ssmlGender: 'MALE',
-        },
-        anchor: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-A', // Low-register, steady
-            ssmlGender: 'MALE',
-        },
-        parent: {
-            languageCode: 'en-US',
-            name: 'en-US-Neural2-C', // Soft, warm
-            ssmlGender: 'FEMALE',
-        },
+        sage: { languageCode: 'en-US', name: 'en-US-Neural2-D', ssmlGender: 'MALE' },
+        mentor: { languageCode: 'en-US', name: 'en-US-Neural2-J', ssmlGender: 'MALE' },
+        anchor: { languageCode: 'en-US', name: 'en-US-Neural2-A', ssmlGender: 'MALE' },
+        parent: { languageCode: 'en-US', name: 'en-US-Neural2-C', ssmlGender: 'FEMALE' },
     };
-
-    return voiceProfiles[voiceId || ''] || defaultVoice;
+    return voiceProfiles[voiceId || 'sage'] || voiceProfiles.sage;
 }
