@@ -588,6 +588,20 @@ function TextToSpeechPanel() {
 
     return (
         <div className="space-y-6">
+            {/* Upgrade Prompt */}
+            {showUpgrade && (
+                <UpgradePrompt
+                    reason={showUpgrade as any}
+                    onDismiss={() => setShowUpgrade(null)}
+                />
+            )}
+
+            {/* Remaining generations info */}
+            {tier !== 'pro' && (
+                <p className="text-xs text-forest-400 text-center">
+                    {getRemainingGenerations()} generations remaining this month
+                </p>
+            )}
             {/* Title Input */}
             <div>
                 <label className="block text-sm font-medium text-forest-600 mb-2">

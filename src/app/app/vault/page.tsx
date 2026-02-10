@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useVaultStore, useFilteredLoops } from '@/stores/vaultStore';
 import { useAudioStore } from '@/stores/audioStore';
@@ -61,6 +62,9 @@ export default function VaultPage() {
                 <p className="text-forest-500">
                     Your library of mental imprints
                 </p>
+                <Link href="/app" className="inline-block mt-3 text-sm text-forest-500 hover:text-forest-700 font-medium">
+                    ✍️ ← Create a New Loop
+                </Link>
             </div>
 
             {/* Category Tabs */}
@@ -255,8 +259,8 @@ function NowPlayingBar({
                     <button
                         onClick={onToggle}
                         className={`w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-105 transition-transform ${isPlaying
-                                ? 'bg-amber-500 text-forest-900'
-                                : 'bg-forest-600 text-parchment-100'
+                            ? 'bg-amber-500 text-forest-900'
+                            : 'bg-forest-600 text-parchment-100'
                             }`}
                     >
                         {isPlaying ? '⏸️' : '▶️'}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore/lite';
 import { db } from '@/lib/firebase';
 import { UserTier, UserProfileData } from '@/types';
 import { TIER_LIMITS, OWNER_EMAILS } from '@/config/tiers';
@@ -90,8 +90,9 @@ export const useTierStore = create<TierState>((set, get) => ({
             }
         } catch (error) {
             console.error('Failed to load user profile:', error);
-            // Default to free on error
-            set({ tier: 'free', isLoaded: true });
+            // Fallback: check owner list even if Firestore fails
+            const isOwner = OWNER_EMAILS.includes(email.toLowerCase());
+            set({ tier: isOwner ? 'pro' : 'free', isLoaded: true });
         }
     },
 
