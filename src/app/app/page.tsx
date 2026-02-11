@@ -658,10 +658,10 @@ function TextToSpeechPanel() {
                     onChange={(e) => setText(e.target.value)}
                     className="input-field min-h-[150px] resize-none"
                     placeholder="Enter the text you want to engrave in your mind..."
-                    maxLength={500}
+                    maxLength={getMaxTextLength()}
                 />
-                <p className={`text-xs mt-1 ${text.length >= 480 ? 'text-red-500 font-medium' : text.length >= 400 ? 'text-yellow-500' : 'text-forest-400'}`}>
-                    {text.length}/500 characters{text.length >= 480 ? ' - Near limit!' : text.length >= 400 ? ' - Approaching limit' : ''}
+                <p className={`text-xs mt-1 ${text.length >= getMaxTextLength() * 0.95 ? 'text-red-500 font-medium' : text.length >= getMaxTextLength() * 0.8 ? 'text-yellow-500' : 'text-forest-400'}`}>
+                    {text.length}/{getMaxTextLength() === Infinity ? '∞' : getMaxTextLength()} characters{text.length >= getMaxTextLength() * 0.95 ? ' - Near limit!' : text.length >= getMaxTextLength() * 0.8 ? ' - Approaching limit' : ''}
                 </p>
             </div>
 

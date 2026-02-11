@@ -28,14 +28,19 @@ export const useTierStore = create<TierState>((set, get) => ({
     isLoaded: false,
 
     loadProfile: async (userId: string, email: string) => {
-        if (!db) return;
+        // Check if owner — auto-assign Pro
+        const isOwner = OWNER_EMAILS.includes(email.toLowerCase());
+        console.log('[Tier] Loading profile for', email, '| isOwner:', isOwner, '| db:', !!db);
+
+        if (!db) {
+            // No Firestore available, use owner check
+            set({ tier: isOwner ? 'pro' : 'free', isLoaded: true });
+            return;
+        }
 
         try {
             const profileRef = doc(db, 'users', userId, 'profile', 'data');
             const profileSnap = await getDoc(profileRef);
-
-            // Check if owner — auto-assign Pro
-            const isOwner = OWNER_EMAILS.includes(email.toLowerCase());
 
             if (profileSnap.exists()) {
                 const data = profileSnap.data() as UserProfileData;
@@ -62,6 +67,7 @@ export const useTierStore = create<TierState>((set, get) => ({
                     await updateDoc(profileRef, { tier: 'pro' });
                 }
 
+                console.log('[Tier] Loaded profile:', { tier, generationsUsed });
                 set({
                     tier,
                     generationsUsed,
@@ -81,6 +87,7 @@ export const useTierStore = create<TierState>((set, get) => ({
                     createdAt: new Date(),
                 });
 
+                console.log('[Tier] Created new profile:', { tier });
                 set({
                     tier,
                     generationsUsed: 0,
@@ -89,9 +96,9 @@ export const useTierStore = create<TierState>((set, get) => ({
                 });
             }
         } catch (error) {
-            console.error('Failed to load user profile:', error);
+            console.error('[Tier] Failed to load user profile:', error);
             // Fallback: check owner list even if Firestore fails
-            const isOwner = OWNER_EMAILS.includes(email.toLowerCase());
+            console.log('[Tier] Falling back to owner check:', isOwner);
             set({ tier: isOwner ? 'pro' : 'free', isLoaded: true });
         }
     },

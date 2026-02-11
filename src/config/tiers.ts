@@ -21,9 +21,9 @@ export const TIER_LIMITS: Record<UserTier, TierLimits> = {
         hasBackgroundSounds: false,
     },
     pro: {
-        maxLoops: 999, // Essentially unlimited
-        maxGenerationsPerMonth: 100,
-        maxTextLength: 1000,
+        maxLoops: Infinity,
+        maxGenerationsPerMonth: Infinity,
+        maxTextLength: 5000,
         availableVoices: ['sage', 'mentor', 'anchor', 'parent'],
         hasDocumentUpload: true,
         hasBackgroundSounds: true,
