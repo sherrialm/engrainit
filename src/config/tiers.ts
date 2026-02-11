@@ -36,6 +36,7 @@ export const TIER_LIMITS: Record<UserTier, TierLimits> = {
 export const OWNER_EMAILS = [
     'sherrialmurray@gmail.com',
     'sherrialmurray@icloud.com',
+    'vialabs.ai@gmail.com',
 ];
 
 /**
