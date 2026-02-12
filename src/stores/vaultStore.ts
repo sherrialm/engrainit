@@ -12,7 +12,7 @@ interface VaultState {
     fetchLoops: (userId: string) => Promise<void>;
     addLoop: (userId: string, loop: Omit<Loop, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'playCount'>) => Promise<Loop>;
     updateLoop: (userId: string, loopId: string, updates: Partial<Loop>) => Promise<void>;
-    removeLoop: (userId: string, loopId: string) => Promise<void>;
+    removeLoop: (userId: string, loopId: string, audioUrl?: string) => Promise<void>;
     setCategory: (category: LoopCategory | 'all') => void;
     clearError: () => void;
 }
@@ -63,15 +63,23 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         }
     },
 
-    removeLoop: async (userId: string, loopId: string) => {
+    removeLoop: async (userId: string, loopId: string, audioUrl?: string) => {
         set({ error: null });
+        const previousLoops = get().loops;
+
+        // Optimistic update
+        set((state) => ({
+            loops: state.loops.filter((loop) => loop.id !== loopId),
+        }));
+
         try {
-            await LoopService.deleteLoop(userId, loopId);
-            set((state) => ({
-                loops: state.loops.filter((loop) => loop.id !== loopId),
-            }));
+            await LoopService.deleteLoop(userId, loopId, audioUrl);
         } catch (err: any) {
-            set({ error: err.message || 'Failed to delete loop' });
+            // Restore previous state if deletion fails
+            set({
+                loops: previousLoops,
+                error: err.message || 'Failed to delete loop'
+            });
             throw err;
         }
     },

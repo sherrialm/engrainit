@@ -43,7 +43,8 @@ export default function VaultPage() {
         if (!confirm(`Delete "${loop.title}"? This cannot be undone.`)) return;
 
         try {
-            await removeLoop(user.uid, loop.id);
+            // Passing audioUrl makes the backend operation much faster
+            await removeLoop(user.uid, loop.id, loop.audioUrl);
             if (currentLoop?.id === loop.id) {
                 stop();
             }

@@ -59,16 +59,18 @@ export async function getLoops(userId: string): Promise<Loop[]> {
         console.log('[LoopService] Fetching docs...');
 
         // Add timeout to prevent hanging operations
-        const timeoutMs = 15000;
+        const timeoutMs = 30000; // Increased to 30s
+        const startTime = Date.now();
         const timeoutPromise = new Promise<never>((_, reject) =>
             setTimeout(() => {
-                console.error('[LoopService] getLoops TIMED OUT after 15s');
+                console.error(`[LoopService] getLoops TIMED OUT after ${timeoutMs}ms`);
                 reject(new Error('Firestore fetch timed out. Please refresh the page.'));
             }, timeoutMs)
         );
 
         const snapshot = await Promise.race([getDocs(loopsRef), timeoutPromise]);
-        console.log('[LoopService] Got', snapshot.docs.length, 'docs');
+        const duration = Date.now() - startTime;
+        console.log(`[LoopService] Got ${snapshot.docs.length} docs in ${duration}ms`);
 
         const loops = snapshot.docs.map(doc => docToLoop(doc.data(), doc.id));
         // Sort in memory instead of in query
@@ -196,23 +198,36 @@ export async function updateLoop(
 /**
  * Delete a loop
  */
-export async function deleteLoop(userId: string, loopId: string): Promise<void> {
+export async function deleteLoop(userId: string, loopId: string, audioUrl?: string): Promise<void> {
     if (!db) throw new Error('Firestore not initialized');
 
-    // Get the loop first to delete the audio file
-    const loop = await getLoop(userId, loopId);
+    console.log(`[LoopService] Deleting loop ${loopId} for user ${userId}`);
 
-    if (loop && loop.audioUrl.includes('firebasestorage') && storage) {
+    // Delete the audio file if provided, or fetch it if needed
+    let urlToDelete = audioUrl;
+
+    // If audioUrl not provided, we try to fetch it but we don't let it block the main deletion if getLoop is slow
+    if (!urlToDelete) {
         try {
-            const audioRef = ref(storage, loop.audioUrl);
-            await deleteObject(audioRef);
+            const loop = await getLoop(userId, loopId);
+            urlToDelete = loop?.audioUrl;
         } catch (e) {
-            console.warn('Failed to delete audio file:', e);
+            console.warn('[LoopService] Failed to fetch loop for audio cleanup:', e);
         }
+    }
+
+    if (urlToDelete && urlToDelete.includes('firebasestorage') && storage) {
+        // Fire and forget storage deletion to speed up doc deletion
+        const audioRef = ref(storage, urlToDelete);
+        deleteObject(audioRef).catch(e => {
+            console.warn('[LoopService] Background audio deletion failed:', e);
+        });
+        console.log('[LoopService] Background audio deletion started');
     }
 
     const loopRef = doc(db!, 'users', userId, 'loops', loopId);
     await deleteDoc(loopRef);
+    console.log('[LoopService] Firestore document deleted successfully');
 }
 
 /**
