@@ -37,6 +37,7 @@ export const OWNER_EMAILS = [
     'sherrialmurray@gmail.com',
     'sherrialmurray@icloud.com',
     'vialabs.ai@gmail.com',
+    'sherrial@gmail.com',
 ];
 
 /**
