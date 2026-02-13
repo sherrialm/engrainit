@@ -9,6 +9,7 @@ export interface Loop {
     sourceType: 'tts' | 'recording';
     text?: string; // Original text if TTS
     audioUrl: string; // Firebase Storage URL
+    voiceId?: string; // Voice used for TTS
     duration: number; // seconds
     intervalSeconds: number; // Spaced repetition interval
     createdAt: Date;

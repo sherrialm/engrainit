@@ -13,6 +13,7 @@ import { uploadBase64Audio } from '@/services/LoopService';
 import { LoopCategory } from '@/types';
 import { AudioPlayerSkeleton } from '@/components/Skeleton';
 import UpgradePrompt from '@/components/UpgradePrompt';
+import { VOICE_OPTIONS } from '@/config/voices';
 
 export default function AppDashboard() {
     const [activeTab, setActiveTab] = useState<'text' | 'record' | 'upload'>('text');
@@ -217,6 +218,7 @@ function DocumentUploadPanel() {
                 sourceType: 'tts',
                 text: extractedText.substring(0, 500),
                 audioUrl,
+                voiceId,
                 duration: currentLoop?.duration || 0,
                 intervalSeconds: interval,
             });
@@ -469,14 +471,6 @@ function DocumentUploadPanel() {
     );
 }
 
-// Voice options for TTS
-const VOICE_OPTIONS = [
-    { id: 'sage', label: '🧘 Sage', description: 'Deep, calm' },
-    { id: 'mentor', label: '📖 Mentor', description: 'Bright, clear' },
-    { id: 'anchor', label: '⚓ Anchor', description: 'Low, steady' },
-    { id: 'parent', label: '💝 Parent', description: 'Soft, warm' },
-];
-
 // Upload tab button with tier lock
 function UploadTabButton({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: 'text' | 'record' | 'upload') => void }) {
     const { canUploadDocument } = useTierStore();
@@ -603,6 +597,7 @@ function TextToSpeechPanel() {
                 sourceType: 'tts',
                 text,
                 audioUrl,
+                voiceId,
                 duration: currentLoop?.duration || 0,
                 intervalSeconds: interval,
             });

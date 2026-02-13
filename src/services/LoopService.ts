@@ -32,6 +32,7 @@ function docToLoop(docData: DocumentData, id: string): Loop {
         sourceType: docData.sourceType,
         text: docData.text,
         audioUrl: docData.audioUrl,
+        voiceId: docData.voiceId,
         duration: docData.duration,
         intervalSeconds: docData.intervalSeconds,
         createdAt: docData.createdAt?.toDate() || new Date(),
