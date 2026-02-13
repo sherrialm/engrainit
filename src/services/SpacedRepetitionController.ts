@@ -36,7 +36,22 @@ export class SpacedRepetitionController {
      * Set the interval between repetitions
      */
     setInterval(seconds: number): void {
-        this.intervalSeconds = Math.max(5, Math.min(300, seconds)); // 5s to 5min
+        const oldInterval = this.intervalSeconds;
+        this.intervalSeconds = Math.max(0, Math.min(300, seconds)); // 0s (continuous) to 5min
+
+        // If we are currently counting down (not playing audio), update the countdown immediately
+        if (this.isActive && this.remainingSeconds > 0) {
+            this.clearTimers();
+
+            if (this.intervalSeconds === 0) {
+                // Switch to continuous play now
+                this.remainingSeconds = 0;
+                this.playWithInterval();
+            } else {
+                // Restart countdown with new interval
+                this.startCountdown(this.intervalSeconds);
+            }
+        }
     }
 
     /**

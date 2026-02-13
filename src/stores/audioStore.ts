@@ -74,6 +74,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 duration: engine.getDuration(),
                 currentTime: 0
             });
+
+            // Sync interval
+            if (get().spacedController) {
+                get().spacedController!.setInterval(loop.intervalSeconds);
+            }
+
             engine.play();
         } catch (error) {
             console.error('Failed to load audio:', error);
@@ -103,7 +109,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 text: loopData?.text,
                 audioUrl: url,
                 duration,
-                intervalSeconds: loopData?.intervalSeconds || 30,
+                intervalSeconds: loopData?.intervalSeconds ?? 30,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 playCount: 0,
@@ -114,6 +120,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 duration,
                 currentTime: 0
             });
+
+            // Sync interval
+            if (get().spacedController) {
+                get().spacedController!.setInterval(tempLoop.intervalSeconds);
+            }
 
             engine.play();
         } catch (error) {

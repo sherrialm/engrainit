@@ -86,6 +86,12 @@ export default function VaultPage() {
                 duration
             });
 
+            // Sync with active audio session if this loop is currently playing
+            if (currentLoop?.id === editingLoop.id) {
+                const { setInterval: setSessionInterval } = useAudioStore.getState();
+                setSessionInterval(editInterval);
+            }
+
             setIsEditModalOpen(false);
             setEditingLoop(null);
         } catch (err: any) {
