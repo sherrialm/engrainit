@@ -65,6 +65,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             get().initializeAudio();
         }
 
+        console.log('[AudioStore] loadAndPlay called for:', loop.title);
+
+        // STOP any active session/timers first to avoid race conditions
+        get().stop();
+
         const engine = get().audioEngine!;
 
         try {
@@ -92,6 +97,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         if (!audioEngine) {
             get().initializeAudio();
         }
+
+        console.log('[AudioStore] loadFromUrl called');
+
+        // STOP any active session/timers first
+        get().stop();
 
         const engine = get().audioEngine!;
 

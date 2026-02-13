@@ -88,8 +88,24 @@ export default function VaultPage() {
 
             // Sync with active audio session if this loop is currently playing
             if (currentLoop?.id === editingLoop.id) {
-                const { setInterval: setSessionInterval } = useAudioStore.getState();
-                setSessionInterval(editInterval);
+                const updatedLoop = {
+                    ...editingLoop,
+                    title: editTitle,
+                    category: editCategory,
+                    intervalSeconds: editInterval,
+                    voiceId: editVoiceId,
+                    audioUrl,
+                    duration
+                };
+
+                if (audioUrl !== editingLoop.audioUrl) {
+                    // If audio changed (e.g. voice change), reload it completely
+                    await loadAndPlay(updatedLoop);
+                } else {
+                    // If only metadata/interval changed, just update the session interval
+                    const { setInterval: setSessionInterval } = useAudioStore.getState();
+                    setSessionInterval(editInterval);
+                }
             }
 
             setIsEditModalOpen(false);

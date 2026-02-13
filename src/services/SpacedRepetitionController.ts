@@ -38,9 +38,11 @@ export class SpacedRepetitionController {
     setInterval(seconds: number): void {
         const oldInterval = this.intervalSeconds;
         this.intervalSeconds = Math.max(0, Math.min(300, seconds)); // 0s (continuous) to 5min
+        console.log(`[SpacedRepetitionController] setInterval: ${oldInterval}s -> ${this.intervalSeconds}s`);
 
         // If we are currently counting down (not playing audio), update the countdown immediately
         if (this.isActive && this.remainingSeconds > 0) {
+            console.log('[SpacedRepetitionController] Active countdown, restarting with new interval');
             this.clearTimers();
 
             if (this.intervalSeconds === 0) {
@@ -69,6 +71,7 @@ export class SpacedRepetitionController {
     start(): void {
         if (this.isActive) return;
 
+        console.log('[SpacedRepetitionController] Starting session with interval:', this.intervalSeconds);
         this.isActive = true;
         this.loopCount = 0;
         this.playWithInterval();
@@ -151,15 +154,19 @@ export class SpacedRepetitionController {
     private playWithInterval(): void {
         if (!this.isActive) return;
 
+        // Clear any existing wait timer before starting a new cycle
+        this.clearTimers();
+
         // If interval is 0, just play continuously (gapless loop)
         if (this.intervalSeconds === 0) {
+            console.log('[SpacedRepetitionController] Continuous mode (0s interval), enabling native loop');
             this.audioEngine.play();
             this.broadcastState();
             return;
         }
 
         // Play audio once (we'll handle the loop manually for spaced repetition)
-        // For now, play in loop mode and stop after duration for interval
+        console.log('[SpacedRepetitionController] Playing audio, interval starts after play cycle');
         this.audioEngine.play();
         this.loopCount++;
         this.onLoopComplete?.(this.loopCount);
@@ -167,11 +174,13 @@ export class SpacedRepetitionController {
 
         // Schedule interval after one play cycle
         const duration = this.audioEngine.getDuration() || 5;
+        console.log(`[SpacedRepetitionController] Audio duration: ${duration}s, scheduling interval in ${duration}s`);
 
         // After one loop cycle, pause and start interval
         this.intervalTimer = setTimeout(() => {
             if (!this.isActive) return;
 
+            console.log(`[SpacedRepetitionController] Play cycle complete, starting ${this.intervalSeconds}s interval`);
             this.audioEngine.pause();
             this.startCountdown(this.intervalSeconds);
         }, duration * 1000);
