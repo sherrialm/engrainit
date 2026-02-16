@@ -39,6 +39,7 @@ export default function VaultPage() {
     const [editCategory, setEditCategory] = useState<LoopCategory>('study');
     const [editInterval, setEditInterval] = useState(30);
     const [editVoiceId, setEditVoiceId] = useState('sage');
+    const [editText, setEditText] = useState('');
 
     const handleEdit = (loop: Loop) => {
         setEditingLoop(loop);
@@ -46,6 +47,7 @@ export default function VaultPage() {
         setEditCategory(loop.category);
         setEditInterval(loop.intervalSeconds);
         setEditVoiceId(loop.voiceId || 'sage');
+        setEditText(loop.text || '');
         setEditError(null);
         setIsEditModalOpen(true);
     };
@@ -57,16 +59,19 @@ export default function VaultPage() {
         setEditError(null);
 
         try {
-            const needsRegeneration = editingLoop.sourceType === 'tts' &&
-                (editVoiceId !== editingLoop.voiceId);
+            const voiceChanged = editingLoop.sourceType === 'tts' && editVoiceId !== editingLoop.voiceId;
+            const textChanged = editingLoop.sourceType === 'tts' && editText !== editingLoop.text;
+            const needsRegeneration = voiceChanged || textChanged;
+
+            console.log('[Edit] Change detected:', { voiceChanged, textChanged, needsRegeneration });
 
             let audioUrl = editingLoop.audioUrl;
             let duration = editingLoop.duration;
 
-            if (needsRegeneration && editingLoop.text) {
-                console.log('[Edit] Voice changed, regenerating audio...');
+            if (needsRegeneration && (editText || editingLoop.text)) {
+                console.log('[Edit] Regeneration required, calling TTS...');
                 const response = await generateSpeech({
-                    text: editingLoop.text,
+                    text: editText || editingLoop.text || '',
                     voiceId: editVoiceId
                 });
 
@@ -77,14 +82,22 @@ export default function VaultPage() {
                 duration = response.duration;
             }
 
-            await updateLoop(user.uid, editingLoop.id, {
+            const updatePayload: Record<string, any> = {
                 title: editTitle,
                 category: editCategory,
                 intervalSeconds: editInterval,
                 voiceId: editVoiceId,
                 audioUrl,
                 duration
-            });
+            };
+            // Only include text for TTS loops — Firestore rejects undefined values
+            if (editingLoop.sourceType === 'tts') {
+                updatePayload.text = editText;
+            }
+
+            console.log('[Edit] Saving with payload:', JSON.stringify(updatePayload, null, 2));
+            console.log('[Edit] intervalSeconds being saved:', editInterval);
+            await updateLoop(user.uid, editingLoop.id, updatePayload);
 
             // Sync with active audio session if this loop is currently playing
             if (currentLoop?.id === editingLoop.id) {
@@ -94,6 +107,7 @@ export default function VaultPage() {
                     category: editCategory,
                     intervalSeconds: editInterval,
                     voiceId: editVoiceId,
+                    text: editingLoop.sourceType === 'tts' ? editText : editingLoop.text,
                     audioUrl,
                     duration
                 };
@@ -273,7 +287,15 @@ export default function VaultPage() {
                         <input
                             type="range"
                             value={editInterval}
-                            onChange={(e) => setEditInterval(Number(e.target.value))}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                console.log('[Edit] Slider onChange:', val);
+                                setEditInterval(val);
+                            }}
+                            onInput={(e) => {
+                                const val = Number((e.target as HTMLInputElement).value);
+                                setEditInterval(val);
+                            }}
                             min={0}
                             max={300}
                             step={5}
@@ -311,6 +333,26 @@ export default function VaultPage() {
                         </div>
                     )}
 
+                    {/* Text Editing (Only for TTS) */}
+                    {editingLoop?.sourceType === 'tts' && (
+                        <div>
+                            <label className="block text-sm font-medium text-forest-600 mb-1.5">
+                                Loop Text
+                            </label>
+                            <textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="input-field py-2 min-h-[100px] text-sm"
+                                placeholder="Enter the text to be engraved..."
+                            />
+                            {editText !== editingLoop.text && (
+                                <p className="text-[10px] text-amber-600 mt-2 italic font-medium">
+                                    ⚠️ Changing the text will regenerate the audio loop.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {editError && (
                         <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg">
                             {editError}
@@ -336,7 +378,7 @@ export default function VaultPage() {
                                     Saving...
                                 </>
                             ) : (
-                                (editingLoop?.sourceType === 'tts' && editVoiceId !== editingLoop.voiceId)
+                                (editingLoop?.sourceType === 'tts' && (editVoiceId !== editingLoop.voiceId || editText !== editingLoop.text))
                                     ? 'Regenerate & Save'
                                     : 'Save Changes'
                             )}
@@ -389,7 +431,7 @@ function LoopCard({
                     <span className="text-sm text-forest-400">
                         {categoryIcons[loop.category]} {loop.category}
                     </span>
-                    <h3 className="font-serif text-lg font-semibold text-forest-700 mt-1">
+                    <h3 className="font-serif text-lg font-semibold text-forest-700 mt-1 break-words">
                         {loop.title}
                     </h3>
                 </div>
@@ -409,7 +451,7 @@ function LoopCard({
             )}
 
             {/* Stats */}
-            <div className="flex items-center gap-4 text-xs text-forest-400 mb-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-forest-400 mb-4">
                 <span>🕐 {formatDuration(loop.duration)}</span>
                 <span>🔁 {loop.intervalSeconds}s interval</span>
                 <span>▶️ {loop.playCount} plays</span>

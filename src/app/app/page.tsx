@@ -140,6 +140,14 @@ function DocumentUploadPanel() {
         }
     };
 
+    // Reactively sync interval with audio store
+    useEffect(() => {
+        if (generatedAudio) {
+            console.log('[DocumentUploadPanel] Syncing interval to audio store:', interval);
+            setAudioInterval(interval);
+        }
+    }, [interval, generatedAudio, setAudioInterval]);
+
     const handleGenerate = async () => {
         if (!extractedText.trim()) return;
 
@@ -501,12 +509,29 @@ function TextToSpeechPanel() {
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState<LoopCategory>('study');
     const [voiceId, setVoiceId] = useState('sage');
-    const [interval, setInterval] = useState(30);
+    const [interval, setIntervalValue] = useState(30);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
     const [isSpacedActive, setIsSpacedActive] = useState(false);
     const [showUpgrade, setShowUpgrade] = useState<string | null>(null);
+
+    // Track what was used for the last generation to detect stale audio
+    const [lastGeneratedText, setLastGeneratedText] = useState('');
+    const [lastGeneratedVoiceId, setLastGeneratedVoiceId] = useState('');
+
+    // Audio is stale when text or voice changed since last generation
+    const needsRegeneration = generatedAudio !== null && (
+        text !== lastGeneratedText || voiceId !== lastGeneratedVoiceId
+    );
+
+    // Reactively sync interval with audio store
+    useEffect(() => {
+        if (generatedAudio) {
+            console.log('[TextToSpeechPanel] Syncing interval to audio store:', interval);
+            setAudioInterval(interval);
+        }
+    }, [interval, generatedAudio, setAudioInterval]);
 
     const handleGenerate = async () => {
         if (!text.trim()) return;
@@ -536,6 +561,8 @@ function TextToSpeechPanel() {
             }
 
             setGeneratedAudio(response.audioContent);
+            setLastGeneratedText(text);
+            setLastGeneratedVoiceId(voiceId);
 
             // Load and play immediately
             await loadFromBase64(response.audioContent, {
@@ -669,11 +696,6 @@ function TextToSpeechPanel() {
                     value={voiceId}
                     onChange={(e) => {
                         setVoiceId(e.target.value);
-                        // Clear generated audio when voice changes - forces re-generate
-                        if (generatedAudio) {
-                            setGeneratedAudio(null);
-                            stop();
-                        }
                     }}
                     className="input-field"
                 >
@@ -683,8 +705,8 @@ function TextToSpeechPanel() {
                         </option>
                     ))}
                 </select>
-                {generatedAudio === null && text.trim() && (
-                    <p className="text-xs text-amber-600 mt-1">⚠️ Voice changed — click Generate to hear the new voice</p>
+                {needsRegeneration && (
+                    <p className="text-xs text-amber-600 mt-1">⚠️ Settings changed — click Regenerate below to update audio</p>
                 )}
             </div>
 
@@ -715,7 +737,7 @@ function TextToSpeechPanel() {
                         <button
                             key={preset}
                             type="button"
-                            onClick={() => setInterval(preset)}
+                            onClick={() => setIntervalValue(preset)}
                             className={`px-3 py-1 text-xs rounded-full transition-colors ${interval === preset
                                 ? 'bg-forest-700 text-parchment-100'
                                 : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
@@ -728,7 +750,7 @@ function TextToSpeechPanel() {
                 <input
                     type="range"
                     value={interval}
-                    onChange={(e) => setInterval(Number(e.target.value))}
+                    onChange={(e) => setIntervalValue(Number(e.target.value))}
                     min={0}
                     max={300}
                     step={5}
@@ -759,6 +781,14 @@ function TextToSpeechPanel() {
                         className="btn-primary w-full disabled:opacity-50"
                     >
                         🔊 Generate & Play
+                    </button>
+                ) : needsRegeneration ? (
+                    <button
+                        onClick={handleGenerate}
+                        disabled={!text.trim() || isGenerating}
+                        className="w-full py-2 px-4 rounded-lg font-medium bg-amber-500 text-forest-900 hover:bg-amber-400 transition-colors"
+                    >
+                        🔄 Regenerate with New Settings
                     </button>
                 ) : (
                     <>
@@ -835,7 +865,7 @@ function TextToSpeechPanel() {
 function VoiceRecordingPanel() {
     const router = useRouter();
     const { user } = useAuthStore();
-    const { loadFromBase64, isPlaying, toggle, stop, startSpacedRepetition, stopSpacedRepetition } = useAudioStore();
+    const { loadFromBase64, isPlaying, toggle, stop, setInterval: setAudioInterval, startSpacedRepetition, stopSpacedRepetition } = useAudioStore();
     const { canSaveLoop } = useTierStore();
     const { addLoop } = useVaultStore();
 
@@ -844,11 +874,21 @@ function VoiceRecordingPanel() {
     const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState<LoopCategory>('study');
-    const [interval, setInterval] = useState(30);
+    const [interval, setIntervalValue] = useState(30);
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [permissionGranted, setPermissionGranted] = useState(false);
     const [isSpacedActive, setIsSpacedActive] = useState(false);
+    const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+    const [permissionDenied, setPermissionDenied] = useState(false);
+
+    // Reactively sync interval with audio store
+    useEffect(() => {
+        if (recordedAudio) {
+            console.log('[VoiceRecordingPanel] Syncing interval to audio store:', interval);
+            setAudioInterval(interval);
+        }
+    }, [interval, recordedAudio, setAudioInterval]);
 
     useEffect(() => {
         const recorder = getRecorderService();
@@ -856,6 +896,10 @@ function VoiceRecordingPanel() {
         recorder.onRecordingStateChange = (recording) => {
             console.log('Recording state changed:', recording);
             setIsRecording(recording);
+            if (recording) {
+                setIsRequestingPermission(false);
+                setPermissionDenied(false);
+            }
         };
 
         recorder.onTimeUpdate = (seconds) => {
@@ -890,8 +934,10 @@ function VoiceRecordingPanel() {
     const startRecording = async () => {
         const recorder = getRecorderService();
         setError(null);
+        setPermissionDenied(false);
         setRecordedAudio(null);
         setRecordingTime(0);
+        setIsRequestingPermission(true);
 
         console.log('Requesting microphone permission...');
 
@@ -901,17 +947,22 @@ function VoiceRecordingPanel() {
             console.log('Permission result:', hasPermission);
 
             if (!hasPermission) {
+                setIsRequestingPermission(false);
+                setPermissionDenied(true);
                 setError('Microphone permission denied. Please allow microphone access in your browser settings.');
                 return;
             }
 
             setPermissionGranted(true);
+            setIsRequestingPermission(false);
             console.log('Starting recording...');
             await recorder.start();
             console.log('Recording started!');
         } catch (err: any) {
             console.error('Start recording error:', err);
             setError(err.message || 'Failed to start recording');
+            setIsRequestingPermission(false);
+            setPermissionDenied(true);
         }
     };
 
@@ -987,13 +1038,44 @@ function VoiceRecordingPanel() {
                     <>
                         <button
                             onClick={startRecording}
-                            className="w-28 h-28 rounded-full bg-forest-700 flex items-center justify-center transition-all mx-auto hover:scale-105"
+                            disabled={isRequestingPermission}
+                            className={`w-28 h-28 rounded-full flex items-center justify-center transition-all mx-auto ${isRequestingPermission ? 'bg-forest-300 cursor-wait' : 'bg-forest-700 hover:scale-105'
+                                }`}
                         >
-                            <span className="text-5xl">🎙️</span>
+                            <span className={`text-5xl ${isRequestingPermission ? 'animate-pulse' : ''}`}>
+                                {isRequestingPermission ? '⏳' : '🎙️'}
+                            </span>
                         </button>
-                        <p className="mt-4 text-forest-600 font-medium">
-                            Tap to start recording
-                        </p>
+
+                        {isRequestingPermission ? (
+                            <div className="mt-4 space-y-2">
+                                <p className="text-forest-600 font-bold animate-pulse">
+                                    Waiting for microphone access...
+                                </p>
+                                <p className="text-xs text-forest-400 max-w-xs mx-auto">
+                                    Please click "Allow" in the browser prompt to start recording.
+                                </p>
+                            </div>
+                        ) : permissionDenied ? (
+                            <div className="mt-4 space-y-3">
+                                <p className="text-amber-600 font-bold">
+                                    Microphone access denied
+                                </p>
+                                <p className="text-xs text-forest-500 max-w-xs mx-auto">
+                                    We need your microphone to record your voice. Please enable it in your browser settings.
+                                </p>
+                                <button
+                                    onClick={startRecording}
+                                    className="text-sm font-medium text-forest-700 underline hover:text-forest-900"
+                                >
+                                    Try Again
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="mt-4 text-forest-600 font-medium">
+                                Tap to start recording
+                            </p>
+                        )}
                     </>
                 )}
 
@@ -1067,7 +1149,7 @@ function VoiceRecordingPanel() {
                                 <button
                                     key={preset}
                                     type="button"
-                                    onClick={() => setInterval(preset)}
+                                    onClick={() => setIntervalValue(preset)}
                                     className={`px-3 py-1 text-xs rounded-full transition-colors ${interval === preset
                                         ? 'bg-forest-700 text-parchment-100'
                                         : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
@@ -1080,7 +1162,7 @@ function VoiceRecordingPanel() {
                         <input
                             type="range"
                             value={interval}
-                            onChange={(e) => setInterval(Number(e.target.value))}
+                            onChange={(e) => setIntervalValue(Number(e.target.value))}
                             min={0}
                             max={300}
                             step={5}

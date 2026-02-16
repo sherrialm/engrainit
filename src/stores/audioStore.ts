@@ -86,6 +86,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             }
 
             engine.play();
+
+            // Auto-start spaced repetition so the loop interval is used
+            if (get().spacedController && loop.intervalSeconds > 0) {
+                console.log('[AudioStore] Auto-starting spaced repetition with interval:', loop.intervalSeconds);
+                get().spacedController!.start();
+            }
         } catch (error) {
             console.error('Failed to load audio:', error);
             throw error;

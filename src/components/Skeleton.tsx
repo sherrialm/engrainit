@@ -14,7 +14,7 @@ interface SkeletonProps {
 export function Skeleton({ className = '', style }: SkeletonProps) {
     return (
         <div
-            className={`animate-pulse bg-ink-200 dark:bg-ink-700 rounded ${className}`}
+            className={`animate-pulse bg-parchment-300 rounded ${className}`}
             style={style}
         />
     );
@@ -76,7 +76,7 @@ export function TextAreaSkeleton() {
 // Audio player skeleton
 export function AudioPlayerSkeleton() {
     return (
-        <div className="space-y-4 p-6 bg-paper-50 dark:bg-ink-800 rounded-xl">
+        <div className="space-y-4 p-6 bg-parchment-100 rounded-xl">
             {/* Waveform placeholder */}
             <div className="flex items-center justify-center gap-1 h-16">
                 {Array.from({ length: 20 }).map((_, i) => (

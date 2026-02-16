@@ -21,6 +21,16 @@ import { db, storage } from '@/lib/firebase';
 import { Loop, LoopCategory } from '@/types';
 
 /**
+ * Strip undefined values from an object before passing to Firestore.
+ * Firestore throws if any field value is `undefined`.
+ */
+function stripUndefined(obj: Record<string, any>): Record<string, any> {
+    return Object.fromEntries(
+        Object.entries(obj).filter(([_, v]) => v !== undefined)
+    );
+}
+
+/**
  * Convert Firestore document to Loop type
  */
 function docToLoop(docData: DocumentData, id: string): Loop {
@@ -139,13 +149,13 @@ export async function createLoop(
         const now = Timestamp.now();
         console.log('[LoopService] Timestamp created');
 
-        const docData = {
+        const docData = stripUndefined({
             ...loop,
             userId,
             createdAt: now,
             updatedAt: now,
             playCount: 0,
-        };
+        });
         console.log('[LoopService] Document data prepared, attempting addDoc...');
 
         // Add timeout to prevent hanging operations
@@ -190,10 +200,10 @@ export async function updateLoop(
 
     const loopRef = doc(db!, 'users', userId, 'loops', loopId);
 
-    await updateDoc(loopRef, {
+    await updateDoc(loopRef, stripUndefined({
         ...updates,
         updatedAt: Timestamp.now(),
-    });
+    }));
 }
 
 /**
