@@ -85,9 +85,9 @@ export default function AppLayout({
                         {/* Desktop Navigation */}
                         <nav className="hidden sm:flex items-center gap-4">
                             {isLoaded && (
-                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-600">
+                                <a href="/app/upgrade" className="px-2 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-600 hover:bg-amber-100 hover:text-amber-800 transition-colors">
                                     {TIER_DISPLAY[tier].emoji} {TIER_DISPLAY[tier].name}
-                                </span>
+                                </a>
                             )}
                             <a href="/app" className="btn-ghost text-sm">
                                 Create
@@ -139,6 +139,15 @@ export default function AppLayout({
                         >
                             🗃️ Vault
                         </a>
+                        {tier !== 'pro' && (
+                            <a
+                                href="/app/upgrade"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="block py-2 px-3 rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
+                            >
+                                ✨ Upgrade
+                            </a>
+                        )}
                         <button
                             onClick={() => {
                                 signOut();
