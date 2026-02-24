@@ -44,15 +44,12 @@ export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps)
             </div>
 
             <div className="flex gap-3 justify-center">
-                <button
+                <Link
+                    href="/app/upgrade"
                     className="px-6 py-2 rounded-lg bg-forest-600 text-parchment-100 font-semibold hover:bg-forest-700 transition-colors text-sm"
-                    onClick={() => {
-                        // Phase 2: Stripe checkout
-                        alert('Payment coming soon! Contact the EngrainIt team to upgrade.');
-                    }}
                 >
                     Upgrade to {nextTierInfo.name} — {nextTierInfo.price}
-                </button>
+                </Link>
                 {onDismiss && (
                     <button
                         onClick={onDismiss}
@@ -72,8 +69,8 @@ function TierBadge({ tier, current }: { tier: UserTier; current: UserTier }) {
 
     return (
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${isCurrent
-                ? 'bg-forest-600 text-parchment-100'
-                : 'bg-parchment-300 text-forest-500'
+            ? 'bg-forest-600 text-parchment-100'
+            : 'bg-parchment-300 text-forest-500'
             }`}>
             {info.emoji} {info.name}
         </div>
