@@ -151,12 +151,6 @@ function DocumentUploadPanel() {
     const handleGenerate = async () => {
         if (!extractedText.trim()) return;
 
-        // Tier check
-        if (!canGenerate()) {
-            setShowUpgrade('generations');
-            return;
-        }
-
         setIsGenerating(true);
         setError(null);
 
@@ -178,11 +172,6 @@ function DocumentUploadPanel() {
             });
 
             setAudioInterval(interval);
-
-            // Increment generation counter
-            if (user?.uid) {
-                await incrementGenerations(user.uid);
-            }
         } catch (err: any) {
             setError(err.message || 'Failed to generate speech');
         } finally {
@@ -231,6 +220,11 @@ function DocumentUploadPanel() {
                 intervalSeconds: interval,
             });
             console.log('[DocSave] Loop saved successfully!');
+
+            // Increment generation counter on save (not on preview)
+            if (user?.uid) {
+                await incrementGenerations(user.uid);
+            }
 
             router.push('/app/vault');
         } catch (err: any) {
@@ -536,11 +530,7 @@ function TextToSpeechPanel() {
     const handleGenerate = async () => {
         if (!text.trim()) return;
 
-        // Tier checks
-        if (!canGenerate()) {
-            setShowUpgrade('generations');
-            return;
-        }
+        // Tier checks (previews are free, but still enforce text length and voice)
         if (text.length > getMaxTextLength()) {
             setError(`Your plan supports up to ${getMaxTextLength()} characters. You have ${text.length}.`);
             return;
@@ -574,11 +564,6 @@ function TextToSpeechPanel() {
             });
 
             setAudioInterval(interval);
-
-            // Increment generation counter
-            if (user?.uid) {
-                await incrementGenerations(user.uid);
-            }
         } catch (err: any) {
             setError(err.message || 'Failed to generate speech');
         } finally {
@@ -607,6 +592,12 @@ function TextToSpeechPanel() {
             return;
         }
 
+        // Tier check: monthly save limit
+        if (!canGenerate()) {
+            setShowUpgrade('generations');
+            return;
+        }
+
         try {
             setIsGenerating(true);
             console.log('[SaveToVault] Uploading audio to Firebase Storage...');
@@ -629,6 +620,11 @@ function TextToSpeechPanel() {
                 intervalSeconds: interval,
             });
             console.log('[SaveToVault] Loop saved successfully!');
+
+            // Increment generation counter on save (not on preview)
+            if (user?.uid) {
+                await incrementGenerations(user.uid);
+            }
 
             // Navigate to vault
             router.push('/app/vault');
@@ -653,7 +649,7 @@ function TextToSpeechPanel() {
             {/* Remaining generations info */}
             {tier !== 'pro' && (
                 <p className="text-xs text-forest-400 text-center">
-                    {getRemainingGenerations()} generations remaining this month
+                    {getRemainingGenerations()} saves remaining this month
                 </p>
             )}
             {/* Title Input */}

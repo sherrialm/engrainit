@@ -33,11 +33,11 @@ export default function SplashScreen({ onComplete, duration = 2500 }: SplashScre
             className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-parchment-200 transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'
                 }`}
         >
-            {/* Logo with glow animation */}
+            {/* Logo with fade-in animation */}
             <div
                 className={`transition-all duration-700 ${showLogo
-                        ? 'opacity-100 scale-100 glow-pulse'
-                        : 'opacity-0 scale-75'
+                    ? 'opacity-100 scale-100'
+                    : 'opacity-0 scale-75'
                     }`}
             >
                 <Image
@@ -45,7 +45,6 @@ export default function SplashScreen({ onComplete, duration = 2500 }: SplashScre
                     alt="EngrainIt"
                     width={140}
                     height={140}
-                    className="rounded-full"
                     priority
                 />
             </div>
@@ -53,8 +52,8 @@ export default function SplashScreen({ onComplete, duration = 2500 }: SplashScre
             {/* Title text */}
             <h1
                 className={`mt-6 font-serif text-4xl font-bold text-forest-700 transition-all duration-700 ${showText
-                        ? 'opacity-100 translate-y-0'
-                        : 'opacity-0 translate-y-4'
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 translate-y-4'
                     }`}
             >
                 EngrainIt
@@ -63,8 +62,8 @@ export default function SplashScreen({ onComplete, duration = 2500 }: SplashScre
             {/* Tagline */}
             <p
                 className={`mt-2 text-forest-500 transition-all duration-700 delay-200 ${showText
-                        ? 'opacity-100 translate-y-0'
-                        : 'opacity-0 translate-y-4'
+                    ? 'opacity-100 translate-y-0'
+                    : 'opacity-0 translate-y-4'
                     }`}
             >
                 Mental Engraving

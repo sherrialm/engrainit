@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Deny all access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // User audio files — each user can only access their own folder
+    match /users/{userId}/audio/{fileName} {
+      // Allow read if the user is authenticated and owns the folder
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow write with restrictions:
+      //  - Must be authenticated and own the folder
+      //  - File must be an audio type
+      //  - File must be under 10MB
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.contentType.matches('audio/.*')
+                   && request.resource.size < 10 * 1024 * 1024;
+
+      // Allow delete if authenticated and owns the folder
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
