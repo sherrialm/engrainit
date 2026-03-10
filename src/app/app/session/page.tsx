@@ -5,6 +5,9 @@
  *
  * Maps session types to vault loops by category/tags,
  * feeds them into the existing playlistStore.
+ *
+ * Playlist ordering follows tag priority:
+ * identity → focus → memory → habit → untagged
  */
 
 import { useEffect, useState, useMemo } from 'react';
@@ -13,7 +16,20 @@ import { useAuthStore } from '@/stores/authStore';
 import { useVaultStore } from '@/stores/vaultStore';
 import { usePlaylistStore, QueueItem } from '@/stores/playlistStore';
 import { SessionIcon, PlayIcon, PauseIcon, StopIcon, SkipNextIcon, SkipPrevIcon } from '@/components/Icons';
-import type { Loop, LoopCategory } from '@/types';
+import type { Loop, LoopCategory, LoopTag } from '@/types';
+
+// ── Tag priority for session ordering ─────────────────────────
+
+const TAG_PRIORITY: LoopTag[] = ['identity', 'focus', 'memory', 'habit'];
+
+function getTagPriority(loop: Loop): number {
+    if (!loop.tags || loop.tags.length === 0) return TAG_PRIORITY.length;
+    // Use the highest-priority tag
+    for (let i = 0; i < TAG_PRIORITY.length; i++) {
+        if (loop.tags.includes(TAG_PRIORITY[i])) return i;
+    }
+    return TAG_PRIORITY.length;
+}
 
 // ── Session Types ─────────────────────────────────────────────
 
@@ -53,10 +69,17 @@ export default function SessionPage() {
         }
     }, [user?.uid, fetchLoops]);
 
-    // Get loops matching the selected session type
+    // Get loops matching the selected session type, sorted by tag priority
     const sessionType = SESSION_TYPES.find(s => s.id === selectedSession)!;
     const matchingLoops = useMemo(() => {
-        return loops.filter(l => sessionType.categories.includes(l.category));
+        const filtered = loops.filter(l => sessionType.categories.includes(l.category));
+        // Sort by tag priority: identity → focus → memory → habit → untagged
+        return [...filtered].sort((a, b) => {
+            const priorityDiff = getTagPriority(a) - getTagPriority(b);
+            if (priorityDiff !== 0) return priorityDiff;
+            // Within same priority, sort by createdAt (oldest first)
+            return a.createdAt.getTime() - b.createdAt.getTime();
+        });
     }, [loops, sessionType]);
 
     function handleStartSession() {
@@ -152,7 +175,14 @@ export default function SessionPage() {
                                         <span className="text-xs text-forest-400 w-5 text-right">{i + 1}</span>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-forest-700 truncate">{loop.title}</p>
-                                            <p className="text-xs text-forest-400">{loop.category}</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="text-xs text-forest-400">{loop.category}</span>
+                                                {loop.tags && loop.tags.length > 0 && (
+                                                    <span className="text-xs text-forest-300">
+                                                        · {loop.tags.join(', ')}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

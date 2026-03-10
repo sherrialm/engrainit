@@ -16,12 +16,18 @@ export interface Loop {
     updatedAt: Date;
     playCount: number;
     pinned?: boolean; // Pinned to home Quick Loops
+    tags?: LoopTag[]; // System-assigned tags for filtering/ordering
 }
 
 /**
  * Vault categories
  */
 export type LoopCategory = 'faith' | 'study' | 'vision' | 'habits' | 'memory';
+
+/**
+ * Loop tags — used for session ordering and smart filtering
+ */
+export type LoopTag = 'identity' | 'focus' | 'memory' | 'briefing' | 'habit';
 
 /**
  * Playback state

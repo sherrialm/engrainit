@@ -9,9 +9,10 @@
  * - Suggested repetition intervals
  *
  * Each chunk can be saved directly as a loop (auto-generation).
+ * Loops are named: {Topic} – Part 1, {Topic} – Part 2, etc.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,11 +27,20 @@ export default function RememberPage() {
     const { addLoop } = useVaultStore();
 
     const [inputText, setInputText] = useState('');
+    const [topicName, setTopicName] = useState('');
     const [result, setResult] = useState<MemoryAidsResult | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [savedChunks, setSavedChunks] = useState<Set<number>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+
+    // Derive topic label — used for loop naming
+    const topic = useMemo(() => {
+        if (topicName.trim()) return topicName.trim();
+        // Auto-derive from first ~30 chars of input
+        const fallback = inputText.trim().substring(0, 30).replace(/\s+/g, ' ');
+        return fallback ? fallback + (inputText.trim().length > 30 ? '...' : '') : 'Untitled';
+    }, [topicName, inputText]);
 
     async function handleGenerate() {
         if (!inputText.trim()) return;
@@ -54,7 +64,7 @@ export default function RememberPage() {
 
         try {
             await addLoop(user.uid, {
-                title: `Memory: ${chunk.label}`,
+                title: `${topic} – Part ${index + 1}`,
                 category: 'memory',
                 sourceType: 'tts',
                 text: chunk.text,
@@ -62,6 +72,7 @@ export default function RememberPage() {
                 voiceId: 'calm-mentor',
                 duration: 0,
                 intervalSeconds: chunk.intervalSeconds,
+                tags: ['memory'],
             });
             setSavedChunks(prev => new Set(prev).add(index));
         } catch (err: any) {
@@ -78,7 +89,7 @@ export default function RememberPage() {
         try {
             // Save mnemonic as a loop
             await addLoop(user.uid, {
-                title: 'Memory: Mnemonic',
+                title: `${topic} – Mnemonic`,
                 category: 'memory',
                 sourceType: 'tts',
                 text: result.mnemonic,
@@ -86,6 +97,7 @@ export default function RememberPage() {
                 voiceId: 'calm-mentor',
                 duration: 0,
                 intervalSeconds: 180,
+                tags: ['memory'],
             });
 
             // Save each chunk as a loop
@@ -93,7 +105,7 @@ export default function RememberPage() {
                 if (!savedChunks.has(i)) {
                     const chunk = result.chunks[i];
                     await addLoop(user.uid, {
-                        title: `Memory: ${chunk.label}`,
+                        title: `${topic} – Part ${i + 1}`,
                         category: 'memory',
                         sourceType: 'tts',
                         text: chunk.text,
@@ -101,6 +113,7 @@ export default function RememberPage() {
                         voiceId: 'calm-mentor',
                         duration: 0,
                         intervalSeconds: chunk.intervalSeconds,
+                        tags: ['memory'],
                     });
                 }
             }
@@ -115,6 +128,7 @@ export default function RememberPage() {
 
     function handleReset() {
         setInputText('');
+        setTopicName('');
         setResult(null);
         setError(null);
         setSavedChunks(new Set());
@@ -133,6 +147,20 @@ export default function RememberPage() {
             {/* Input */}
             {!result && (
                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-forest-600 mb-2">
+                            Topic Name
+                        </label>
+                        <input
+                            type="text"
+                            value={topicName}
+                            onChange={(e) => setTopicName(e.target.value)}
+                            className="input-field"
+                            placeholder="e.g., Biology Terms, Spanish Vocab, Key Dates..."
+                            maxLength={80}
+                        />
+                        <p className="text-xs text-forest-400 mt-1">Used for naming your loops in the vault</p>
+                    </div>
                     <div>
                         <label className="block text-sm font-medium text-forest-600 mb-2">
                             What do you want to memorize?
@@ -159,6 +187,13 @@ export default function RememberPage() {
             {/* Results */}
             {result && (
                 <div className="space-y-6">
+                    {/* Topic badge */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-forest-400 bg-parchment-300 px-2 py-1 rounded-full">
+                            Topic: {topic}
+                        </span>
+                    </div>
+
                     {/* Mnemonic */}
                     <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5 space-y-2">
                         <h3 className="font-serif text-sm font-bold text-forest-700 uppercase tracking-wide">
@@ -178,7 +213,7 @@ export default function RememberPage() {
                             <div key={i} className="bg-parchment-100 rounded-lg border border-forest-100 p-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-sm font-semibold text-forest-700">
-                                        {chunk.label}
+                                        {topic} – Part {i + 1}
                                     </h4>
                                     <span className="text-xs text-forest-400">
                                         Interval: {chunk.intervalSeconds >= 60 ? `${Math.floor(chunk.intervalSeconds / 60)}m` : `${chunk.intervalSeconds}s`}

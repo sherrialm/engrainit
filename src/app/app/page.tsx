@@ -5,7 +5,7 @@
  *
  * The central control surface for EngrainIt.
  * Actions: Generate Loop, Start Session, Remember Something, My Loops, Progress
- * Plus: Quick Loops (pinned), Daily Briefing card.
+ * Plus: Quick Loops (pinned), Daily Briefing card with Firestore caching.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,8 +14,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { useVaultStore, usePinnedLoops } from '@/stores/vaultStore';
 import { useTierStore } from '@/stores/tierStore';
 import { useAudioStore } from '@/stores/audioStore';
-import { LoopIcon, SessionIcon, MemoryIcon, VaultIcon, ProgressIcon, BriefingIcon, PlayIcon, RefreshIcon, PinFilledIcon } from '@/components/Icons';
+import { LoopIcon, SessionIcon, MemoryIcon, VaultIcon, ProgressIcon, BriefingIcon, PlayIcon, RefreshIcon, PinFilledIcon, CheckIcon } from '@/components/Icons';
 import { generateBriefing } from '@/services/AIService';
+import { getCachedBriefing, saveBriefing } from '@/services/BriefingService';
 
 // ── Daily Briefing helpers ────────────────────────────────────
 
@@ -23,11 +24,19 @@ function getTodayKey() {
     return new Date().toISOString().split('T')[0];
 }
 
+function formatBriefingDate() {
+    return new Date().toLocaleDateString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
 // ── Home Hub ──────────────────────────────────────────────────
 
 export default function AppDashboard() {
     const { user } = useAuthStore();
-    const { loops, fetchLoops } = useVaultStore();
+    const { loops, fetchLoops, addLoop } = useVaultStore();
     const pinnedLoops = usePinnedLoops();
     const { tier } = useTierStore();
     const { loadAndPlay } = useAudioStore();
@@ -35,6 +44,8 @@ export default function AppDashboard() {
     // Briefing state
     const [briefingText, setBriefingText] = useState<string | null>(null);
     const [isBriefingLoading, setIsBriefingLoading] = useState(false);
+    const [isBriefingSaved, setIsBriefingSaved] = useState(false);
+    const [isSavingBriefing, setIsSavingBriefing] = useState(false);
 
     // Fetch loops on mount
     useEffect(() => {
@@ -43,21 +54,37 @@ export default function AppDashboard() {
         }
     }, [user?.uid, fetchLoops]);
 
-    // Load today's briefing (cached)
+    // Load today's briefing from Firestore on mount
     useEffect(() => {
-        loadCachedBriefing();
-    }, []);
+        if (user?.uid) {
+            loadCachedBriefing(user.uid);
+        }
+    }, [user?.uid]);
 
-    function loadCachedBriefing() {
+    async function loadCachedBriefing(uid: string) {
         const todayKey = getTodayKey();
-        const cached = localStorage.getItem(`engrainit_briefing_${todayKey}`);
+
+        // Try Firestore first
+        const cached = await getCachedBriefing(uid, todayKey);
         if (cached) {
             setBriefingText(cached);
+            return;
+        }
+
+        // Fall back to localStorage (migration from old caching)
+        const localCached = localStorage.getItem(`engrainit_briefing_${todayKey}`);
+        if (localCached) {
+            setBriefingText(localCached);
+            // Migrate to Firestore
+            await saveBriefing(uid, todayKey, localCached);
+            localStorage.removeItem(`engrainit_briefing_${todayKey}`);
         }
     }
 
     async function handleGenerateBriefing() {
+        if (!user?.uid) return;
         setIsBriefingLoading(true);
+        setIsBriefingSaved(false);
         try {
             const text = await generateBriefing({
                 goals: loops.filter(l => l.category === 'vision').map(l => l.title).slice(0, 3),
@@ -66,12 +93,37 @@ export default function AppDashboard() {
                 recentLoopNames: loops.slice(0, 5).map(l => l.title),
             });
             const todayKey = getTodayKey();
-            localStorage.setItem(`engrainit_briefing_${todayKey}`, text);
+            // Save to Firestore
+            await saveBriefing(user.uid, todayKey, text);
             setBriefingText(text);
         } catch (err) {
             console.error('[Briefing] Generation failed:', err);
         } finally {
             setIsBriefingLoading(false);
+        }
+    }
+
+    async function handleSaveBriefingAsLoop() {
+        if (!user?.uid || !briefingText || isBriefingSaved) return;
+        setIsSavingBriefing(true);
+        try {
+            const todayKey = getTodayKey();
+            await addLoop(user.uid, {
+                title: `Daily Briefing – ${formatBriefingDate()}`,
+                category: 'vision',
+                sourceType: 'tts',
+                text: briefingText,
+                audioUrl: '',
+                voiceId: 'calm-mentor',
+                duration: 0,
+                intervalSeconds: 180,
+                tags: ['identity', 'briefing'],
+            });
+            setIsBriefingSaved(true);
+        } catch (err) {
+            console.error('[Briefing] Save as loop failed:', err);
+        } finally {
+            setIsSavingBriefing(false);
         }
     }
 
@@ -142,9 +194,30 @@ export default function AppDashboard() {
                 </div>
 
                 {briefingText ? (
-                    <p className="text-sm text-forest-600 leading-relaxed">
-                        {briefingText}
-                    </p>
+                    <>
+                        <p className="text-sm text-forest-600 leading-relaxed">
+                            {briefingText}
+                        </p>
+                        <button
+                            onClick={handleSaveBriefingAsLoop}
+                            disabled={isBriefingSaved || isSavingBriefing}
+                            className={`text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
+                                isBriefingSaved
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-parchment-300 text-forest-600 hover:bg-forest-700 hover:text-parchment-100'
+                            }`}
+                        >
+                            {isBriefingSaved ? (
+                                <span className="flex items-center gap-1">
+                                    <CheckIcon className="w-3 h-3" /> Saved to Vault
+                                </span>
+                            ) : isSavingBriefing ? (
+                                'Saving...'
+                            ) : (
+                                'Save as Loop'
+                            )}
+                        </button>
+                    </>
                 ) : (
                     <p className="text-sm text-forest-400 italic">
                         {isBriefingLoading ? 'Generating your briefing...' : 'Tap refresh to generate your daily mental briefing.'}
@@ -213,4 +286,3 @@ export default function AppDashboard() {
         </div>
     );
 }
-

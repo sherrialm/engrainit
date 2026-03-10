@@ -133,6 +133,7 @@ export default function GenerateLoopPage() {
                 voiceId: generatedLoop.voiceId,
                 duration: 0,
                 intervalSeconds: generatedLoop.intervalSeconds,
+                tags: ['identity', 'focus'],
             });
             router.push('/app/vault');
         } catch (err: any) {
