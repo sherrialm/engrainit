@@ -15,12 +15,13 @@ export interface Loop {
     createdAt: Date;
     updatedAt: Date;
     playCount: number;
+    pinned?: boolean; // Pinned to home Quick Loops
 }
 
 /**
  * Vault categories
  */
-export type LoopCategory = 'faith' | 'study' | 'vision' | 'habits';
+export type LoopCategory = 'faith' | 'study' | 'vision' | 'habits' | 'memory';
 
 /**
  * Playback state
@@ -95,4 +96,99 @@ export interface UserProfileData {
     generationsUsed: number;
     generationsResetDate: Date;
     createdAt: Date;
+}
+
+/**
+ * AI Affirmation — category options
+ */
+export type AffirmationCategory = 'Faith' | 'Study' | 'Vision' | 'Habits';
+
+/**
+ * AI Affirmation — tone options
+ */
+export type AffirmationTone = 'Gentle' | 'Mentor' | 'Bold' | 'Calm';
+
+/**
+ * AI Affirmation — refine request (client → API)
+ */
+export interface AffirmationRefineRequest {
+    sourceText: string;
+    category: AffirmationCategory;
+    tone: AffirmationTone;
+    believability: number;
+    faithStyle?: boolean;
+}
+
+/**
+ * AI Affirmation — refine response (API → client)
+ */
+export interface AffirmationRefineResponse {
+    options: string[];
+}
+
+// ── Loop Generation (AI-guided flow) ──────────────────────────
+
+export type LoopMood = 'calm' | 'focused' | 'stressed' | 'motivated' | 'tired';
+export type LoopGoal = 'start-day' | 'improve-focus' | 'build-confidence' | 'stay-disciplined' | 'reduce-stress';
+export type LoopProblem = 'overwhelmed' | 'distracted' | 'low-motivation' | 'negative-thinking';
+
+export interface LoopGenerationInput {
+    moods: LoopMood[];
+    goals: LoopGoal[];
+    problems: LoopProblem[];
+    details?: string;
+}
+
+export interface GeneratedLoopSuggestion {
+    name: string;
+    text: string;
+    voiceId: string;
+    intervalSeconds: number;
+}
+
+// ── Memory Engine ─────────────────────────────────────────────
+
+export interface MemoryChunk {
+    label: string;
+    text: string;
+    intervalSeconds: number;
+}
+
+export interface MemoryAidsResult {
+    mnemonic: string;
+    chunks: MemoryChunk[];
+    schedule: string; // Human-readable repetition schedule
+}
+
+// ── Daily Briefing ────────────────────────────────────────────
+
+export interface BriefingContext {
+    goals: string[];
+    habits: string[];
+    recentMoods: LoopMood[];
+    recentLoopNames: string[];
+}
+
+export interface DailyBriefing {
+    text: string;
+    generatedAt: Date;
+    date: string; // YYYY-MM-DD
+}
+
+// ── Habit Tracking ────────────────────────────────────────────
+
+export type HabitGoalCategory = 'health' | 'money' | 'family' | 'spiritual' | 'learning';
+
+export interface Habit {
+    id: string;
+    userId: string;
+    name: string;
+    goalCategory?: HabitGoalCategory;
+    createdAt: Date;
+    entries: Record<string, boolean>; // date string (YYYY-MM-DD) → completed
+}
+
+export interface HabitEntry {
+    date: string; // YYYY-MM-DD
+    completed: boolean;
 }

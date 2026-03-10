@@ -48,6 +48,7 @@ function docToLoop(docData: DocumentData, id: string): Loop {
         createdAt: docData.createdAt?.toDate() || new Date(),
         updatedAt: docData.updatedAt?.toDate() || new Date(),
         playCount: docData.playCount || 0,
+        pinned: docData.pinned || false,
     };
 }
 

@@ -1,59 +1,60 @@
 /**
  * TTS Service - Client-side wrapper for TTS API
+ *
+ * Features:
+ * - 15-second request timeout (AbortController)
+ * - Debug logging (console only, no sensitive data)
+ * - Proper error propagation (no silent failures)
  */
 
 import { TTSRequest, TTSResponse } from '@/types';
 
+const TTS_TIMEOUT_MS = 15_000;
+
 /**
- * Generate speech from text using Google Cloud TTS
+ * Generate speech from text using server-side TTS API
  */
 export async function generateSpeech(request: TTSRequest): Promise<TTSResponse> {
-    const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-    });
+    console.log('[TTS] Request start:', { chars: request.text.length, voiceId: request.voiceId });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || 'Failed to generate speech');
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        console.warn('[TTS] Request timed out after', TTS_TIMEOUT_MS, 'ms');
+        controller.abort();
+    }, TTS_TIMEOUT_MS);
 
-    return response.json();
-}
+    try {
+        const response = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request),
+            signal: controller.signal,
+        });
 
-/**
- * Fallback to browser's built-in speech synthesis
- * Used when Google Cloud TTS is not configured
- */
-export function useBrowserTTS(text: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        if (!('speechSynthesis' in window)) {
-            reject(new Error('Speech synthesis not supported'));
-            return;
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('[TTS] API error:', response.status, error);
+            throw new Error(error.error || 'Failed to generate speech');
         }
 
-        // Create audio context to record the speech
-        const audioContext = new AudioContext();
-        const mediaStreamDestination = audioContext.createMediaStreamDestination();
-        const mediaRecorder = new MediaRecorder(mediaStreamDestination.stream);
-        const chunks: Blob[] = [];
+        const data: TTSResponse = await response.json();
+        console.log('[TTS] Request success:', { haAudio: !!data.audioContent, duration: data.duration });
+        return data;
+    } catch (err: unknown) {
+        clearTimeout(timeoutId);
 
-        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        };
+        if (err instanceof DOMException && err.name === 'AbortError') {
+            throw new Error('Audio generation timed out. Please try again with shorter text.');
+        }
 
-        // Note: This is a simplified fallback. Full browser TTS recording
-        // requires more complex setup with Web Audio API.
-        // For now, we'll use a simpler approach.
+        // Re-throw with friendly message if not already a meaningful error
+        if (err instanceof Error) {
+            throw err;
+        }
 
-        reject(new Error('Browser TTS fallback not fully implemented. Please configure Google Cloud TTS.'));
-    });
+        throw new Error('Audio generation failed. Please try again.');
+    }
 }
+

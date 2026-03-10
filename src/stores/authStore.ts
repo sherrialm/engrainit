@@ -8,6 +8,13 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
+function getFirebaseAuth() {
+    if (!auth) {
+        throw new Error('Firebase is not initialized. Please check environment variables and refresh.');
+    }
+    return auth;
+}
+
 interface AuthState {
     user: User | null;
     isLoading: boolean;
@@ -31,7 +38,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signIn: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await signInWithEmailAndPassword(auth!, email, password);
+            await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
             set({ isLoading: false });
         } catch (err: any) {
             set({
@@ -45,7 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signUp: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await createUserWithEmailAndPassword(auth!, email, password);
+            await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
             set({ isLoading: false });
         } catch (err: any) {
             set({
@@ -59,7 +66,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     signOut: async () => {
         set({ isLoading: true, error: null });
         try {
-            await firebaseSignOut(auth!);
+            await firebaseSignOut(getFirebaseAuth());
             set({ user: null, isLoading: false });
         } catch (err: any) {
             set({
@@ -73,7 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearError: () => set({ error: null }),
 
     initializeAuth: () => {
-        const unsubscribe = onAuthStateChanged(auth!, (user) => {
+        const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
             set({ user, isInitialized: true, isLoading: false });
         });
         return unsubscribe;

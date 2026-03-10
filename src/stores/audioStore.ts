@@ -1,12 +1,27 @@
 import { create } from 'zustand';
 import { Loop, PlaybackState } from '@/types';
 import { AudioEngine, getAudioEngine } from '@/services/AudioEngine';
+import { BackgroundAudioEngine } from '@/services/BackgroundAudioEngine';
 import { SpacedRepetitionController } from '@/services/SpacedRepetitionController';
+import { AMBIENCE_TRACKS } from '@/config/ambience';
 
 interface AudioState extends PlaybackState {
     // Services (initialized lazily)
     audioEngine: AudioEngine | null;
     spacedController: SpacedRepetitionController | null;
+    backgroundEngine: BackgroundAudioEngine | null;
+
+    // Background ambience state
+    backgroundEnabled: boolean;
+    backgroundVolume: number;
+    backgroundTrackId: string | null;
+    isBackgroundPlaying: boolean;
+
+    // Master volume state
+    masterVolume: number;
+
+    // Fade-in-progress flag (NightSession)
+    fadeInProgress: boolean;
 
     // Actions
     initializeAudio: () => void;
@@ -19,8 +34,17 @@ interface AudioState extends PlaybackState {
     toggle: () => void;
     setInterval: (seconds: number) => void;
     setVolume: (volume: number) => void;
+    setMasterVolume: (v: number) => void;
     startSpacedRepetition: () => void;
     stopSpacedRepetition: () => void;
+    setFadeInProgress: (active: boolean) => void;
+
+    // Background actions
+    setBackgroundEnabled: (enabled: boolean) => void;
+    setBackgroundVolume: (v: number) => void;
+    setBackgroundTrack: (trackId: string) => Promise<void>;
+    startBackground: () => void;
+    stopBackground: () => void;
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -33,6 +57,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     intervalRemaining: null,
     audioEngine: null,
     spacedController: null,
+    backgroundEngine: null,
+
+    // Background initial state
+    backgroundEnabled: false,
+    backgroundVolume: 0.25,
+    backgroundTrackId: null,
+    isBackgroundPlaying: false,
+
+    // Master volume
+    masterVolume: 1,
+
+    // Fade protection
+    fadeInProgress: false,
 
     initializeAudio: () => {
         if (typeof window === 'undefined') return;
@@ -56,7 +93,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             set({ isPlaying, isPaused: !isPlaying, intervalRemaining });
         };
 
-        set({ audioEngine: engine, spacedController: controller });
+        // Initialize background engine on same AudioContext
+        let bgEngine: BackgroundAudioEngine | null = null;
+        const ctx = engine.getAudioContext();
+        if (ctx) {
+            bgEngine = new BackgroundAudioEngine(ctx);
+            bgEngine.setVolume(state.backgroundVolume);
+        }
+
+        set({ audioEngine: engine, spacedController: controller, backgroundEngine: bgEngine });
     },
 
     loadAndPlay: async (loop: Loop) => {
@@ -86,6 +131,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             }
 
             engine.play();
+
+            // Start background if enabled
+            if (get().backgroundEnabled) {
+                get().startBackground();
+            }
 
             // Auto-start spaced repetition so the loop interval is used
             if (get().spacedController && loop.intervalSeconds > 0) {
@@ -143,6 +193,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             }
 
             engine.play();
+
+            // Start background if enabled
+            if (get().backgroundEnabled) {
+                get().startBackground();
+            }
         } catch (error) {
             console.error('Failed to load audio from URL:', error);
             throw error;
@@ -159,11 +214,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     pause: () => {
         get().audioEngine?.pause();
+        get().stopBackground();
     },
 
     stop: () => {
         get().audioEngine?.stop();
         get().spacedController?.stop();
+        get().stopBackground();
         set({ currentTime: 0, intervalRemaining: null });
     },
 
@@ -171,8 +228,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         const { audioEngine, isPlaying } = get();
         if (isPlaying) {
             audioEngine?.pause();
+            get().stopBackground();
         } else {
             audioEngine?.play();
+            // Resume background if enabled and primary is loaded
+            if (get().backgroundEnabled && get().currentLoop && !get().isBackgroundPlaying) {
+                get().startBackground();
+            }
         }
     },
 
@@ -190,6 +252,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         get().audioEngine?.setVolume(volume);
     },
 
+    setMasterVolume: (v: number) => {
+        const clamped = Math.max(0, Math.min(1, v));
+        set({ masterVolume: clamped });
+        // During fade, only update state — NightSession controls the engine
+        if (!get().fadeInProgress) {
+            get().audioEngine?.setVolume(clamped);
+        }
+    },
+
     startSpacedRepetition: () => {
         get().spacedController?.start();
     },
@@ -197,5 +268,73 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     stopSpacedRepetition: () => {
         get().spacedController?.stop();
         set({ intervalRemaining: null });
+    },
+
+    setFadeInProgress: (active: boolean) => {
+        set({ fadeInProgress: active });
+    },
+
+    // ── Background ambience actions ───────────────────────────
+
+    setBackgroundEnabled: (enabled: boolean) => {
+        set({ backgroundEnabled: enabled });
+        if (!enabled) {
+            get().stopBackground();
+        }
+    },
+
+    setBackgroundVolume: (v: number) => {
+        const clamped = Math.max(0, Math.min(1, v));
+        set({ backgroundVolume: clamped });
+        // During fade, only update state — NightSession controls the engine
+        if (!get().fadeInProgress) {
+            get().backgroundEngine?.setVolume(clamped);
+        }
+    },
+
+    setBackgroundTrack: async (trackId: string) => {
+        const track = AMBIENCE_TRACKS.find((t) => t.id === trackId);
+        if (!track) return;
+
+        const { backgroundEngine, isBackgroundPlaying } = get();
+        if (!backgroundEngine) return;
+
+        // Stop current playback while loading new track
+        if (isBackgroundPlaying) {
+            backgroundEngine.stop();
+            set({ isBackgroundPlaying: false });
+        }
+
+        set({ backgroundTrackId: trackId });
+
+        const loaded = await backgroundEngine.loadTrack(track.file);
+        if (!loaded) {
+            console.warn('[AudioStore] Background track failed to load:', track.file);
+            return;
+        }
+
+        // Restart only if enabled AND primary is actively playing with a loaded loop
+        if (get().backgroundEnabled && get().isPlaying && get().currentLoop) {
+            backgroundEngine.play();
+            set({ isBackgroundPlaying: true });
+        }
+    },
+
+    startBackground: () => {
+        const { backgroundEngine, backgroundTrackId, backgroundEnabled, isBackgroundPlaying, currentLoop, isPlaying } = get();
+        // Only play when enabled, primary loop is loaded, AND primary is actively playing
+        if (!backgroundEngine || !backgroundTrackId || !backgroundEnabled) return;
+        if (isBackgroundPlaying || !currentLoop || !isPlaying) return;
+
+        backgroundEngine.play();
+        set({ isBackgroundPlaying: true });
+    },
+
+    stopBackground: () => {
+        const { backgroundEngine } = get();
+        if (!backgroundEngine) return;
+
+        backgroundEngine.stop();
+        set({ isBackgroundPlaying: false });
     },
 }));

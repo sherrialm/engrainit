@@ -19,36 +19,62 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (text.length > 500) {
+        if (text.length > 5000) {
             return NextResponse.json(
-                { error: 'Text must be 500 characters or less', code: 'TEXT_TOO_LONG' },
+                { error: 'Text must be 5,000 characters or less', code: 'TEXT_TOO_LONG' },
                 { status: 400 }
             );
         }
 
-        // Try ElevenLabs first, fall back to Google TTS
         const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-
-        if (elevenLabsKey) {
-            console.log('Using ElevenLabs TTS...');
-            return await elevenLabsTTS(text, voiceId, elevenLabsKey);
-        }
-
         const googleKey = process.env.GOOGLE_CLOUD_TTS_API_KEY;
-        if (googleKey) {
-            console.log('Falling back to Google TTS...');
-            return await googleTTS(text, voiceId, googleKey);
+
+        // Try ElevenLabs first
+        if (elevenLabsKey) {
+            console.log('[TTS Route] Trying ElevenLabs...', { chars: text.length });
+            try {
+                const result = await elevenLabsTTS(text, voiceId, elevenLabsKey);
+                console.log('[TTS Route] ElevenLabs succeeded');
+                return result;
+            } catch (elError: unknown) {
+                const msg = elError instanceof Error ? elError.message : 'Unknown';
+                console.warn('[TTS Route] ElevenLabs failed, falling back to Google:', msg);
+            }
         }
 
-        return NextResponse.json({
-            audioContent: '',
-            duration: 0,
-            message: 'No TTS API key configured. Please add ELEVENLABS_API_KEY or GOOGLE_CLOUD_TTS_API_KEY to .env.local',
-        });
-    } catch (error) {
-        console.error('TTS error:', error);
+        // Fall back to Google TTS
+        if (googleKey) {
+            console.log('[TTS Route] Trying Google TTS fallback...', { chars: text.length });
+            try {
+                const result = await googleTTS(text, voiceId, googleKey);
+                console.log('[TTS Route] Google TTS succeeded');
+                return result;
+            } catch (gError: unknown) {
+                const msg = gError instanceof Error ? gError.message : 'Unknown';
+                console.error('[TTS Route] Google TTS also failed:', msg);
+                return NextResponse.json(
+                    { error: 'Audio generation failed. Please try again.', code: 'TTS_ALL_FAILED' },
+                    { status: 500 }
+                );
+            }
+        }
+
+        if (!elevenLabsKey && !googleKey) {
+            return NextResponse.json({
+                audioContent: '',
+                duration: 0,
+                message: 'No TTS API key configured. Please add ELEVENLABS_API_KEY or GOOGLE_CLOUD_TTS_API_KEY to .env.local',
+            });
+        }
+
         return NextResponse.json(
-            { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+            { error: 'Audio generation failed. Please try again.', code: 'TTS_ALL_FAILED' },
+            { status: 500 }
+        );
+    } catch (error) {
+        console.error('[TTS Route] Unexpected error:', error);
+        return NextResponse.json(
+            { error: 'Audio generation failed. Please try again.', code: 'INTERNAL_ERROR' },
             { status: 500 }
         );
     }
@@ -94,11 +120,8 @@ async function elevenLabsTTS(text: string, voiceId: string | undefined, apiKey: 
 
     if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
-        console.error('ElevenLabs API error:', response.status, errorText);
-        return NextResponse.json(
-            { error: `ElevenLabs API Error: ${errorText}`, code: 'TTS_API_ERROR' },
-            { status: 500 }
-        );
+        console.error('[TTS Route] ElevenLabs API error:', response.status, errorText);
+        throw new Error(`ElevenLabs API Error: ${errorText}`);
     }
 
     // ElevenLabs returns raw audio bytes (MP3 format)
@@ -141,11 +164,8 @@ async function googleTTS(text: string, voiceId: string | undefined, apiKey: stri
 
     if (!ttsResponse.ok) {
         const errorData = await ttsResponse.json().catch(() => ({}));
-        console.error('Google TTS API error:', ttsResponse.status, errorData);
-        return NextResponse.json(
-            { error: `TTS API Error: ${errorData.error?.message || 'Unknown error'}`, code: 'TTS_API_ERROR' },
-            { status: 500 }
-        );
+        console.error('[TTS Route] Google TTS API error:', ttsResponse.status, errorData);
+        throw new Error(`Google TTS Error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const data = await ttsResponse.json();

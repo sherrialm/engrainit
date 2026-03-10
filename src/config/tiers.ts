@@ -7,7 +7,7 @@ export const TIER_LIMITS: Record<UserTier, TierLimits> = {
     free: {
         maxLoops: 3,
         maxGenerationsPerMonth: 5,
-        maxTextLength: 200,
+        maxTextLength: 2000,
         availableVoices: ['sage'],
         hasDocumentUpload: false,
         hasBackgroundSounds: false,
@@ -15,7 +15,7 @@ export const TIER_LIMITS: Record<UserTier, TierLimits> = {
     core: {
         maxLoops: 25,
         maxGenerationsPerMonth: 30,
-        maxTextLength: 500,
+        maxTextLength: 2000,
         availableVoices: ['sage', 'mentor', 'anchor', 'parent'],
         hasDocumentUpload: true,
         hasBackgroundSounds: false,

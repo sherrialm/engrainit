@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useVaultStore, useFilteredLoops } from '@/stores/vaultStore';
 import { useAudioStore } from '@/stores/audioStore';
+import { usePlaylistStore, QueueItem } from '@/stores/playlistStore';
 import { useTierStore } from '@/stores/tierStore';
 import { generateSpeech } from '@/services/TTSService';
 import { uploadBase64Audio } from '@/services/LoopService';
@@ -20,6 +21,15 @@ const CATEGORIES: { id: LoopCategory | 'all'; label: string; icon: string }[] = 
     { id: 'study', label: 'Study', icon: '📖' },
     { id: 'vision', label: 'Vision', icon: '🎯' },
     { id: 'habits', label: 'Habits', icon: '⚡' },
+    { id: 'memory', label: 'Memory', icon: '🧠' },
+];
+
+const DWELL_PRESETS = [
+    { label: 'Manual', value: 0 },
+    { label: '1m', value: 60 },
+    { label: '3m', value: 180 },
+    { label: '5m', value: 300 },
+    { label: '10m', value: 600 },
 ];
 
 export default function VaultPage() {
@@ -27,6 +37,11 @@ export default function VaultPage() {
     const { fetchLoops, isLoading, error, selectedCategory, setCategory, removeLoop, updateLoop } = useVaultStore();
     const filteredLoops = useFilteredLoops();
     const { loadAndPlay, currentLoop, isPlaying, toggle, stop } = useAudioStore();
+    const {
+        queue, queueIndex, isQueueMode, dwellSec,
+        setQueue, clearQueue, setQueueMode, setDwellSec,
+        startQueue, stopQueue, nextInQueue, prevInQueue,
+    } = usePlaylistStore();
 
     // Edit modal state
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -40,6 +55,10 @@ export default function VaultPage() {
     const [editInterval, setEditInterval] = useState(30);
     const [editVoiceId, setEditVoiceId] = useState('sage');
     const [editText, setEditText] = useState('');
+
+    // Queue builder state
+    const [queueBuilderOn, setQueueBuilderOn] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     const handleEdit = (loop: Loop) => {
         setEditingLoop(loop);
@@ -161,6 +180,37 @@ export default function VaultPage() {
         }
     };
 
+    // Queue builder helpers
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleStartQueue = () => {
+        const items: QueueItem[] = filteredLoops
+            .filter((l) => selectedIds.has(l.id))
+            .map((l) => ({
+                loopId: l.id,
+                title: l.title,
+                audioUrl: l.audioUrl,
+                sourceType: l.sourceType as 'tts' | 'recording' | 'document',
+                intervalSeconds: l.intervalSeconds,
+                loop: l,
+            }));
+
+        if (items.length === 0) return;
+
+        setQueue(items);
+        setQueueMode(true);
+        startQueue();
+        setQueueBuilderOn(false);
+        setSelectedIds(new Set());
+    };
+
     return (
         <div className="max-w-6xl mx-auto px-4 py-8">
             {/* Page Header */}
@@ -174,6 +224,43 @@ export default function VaultPage() {
                 <Link href="/app" className="inline-block mt-3 text-sm text-forest-500 hover:text-forest-700 font-medium">
                     ✍️ ← Create a New Loop
                 </Link>
+            </div>
+
+            {/* Queue Mode Toggle */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={queueBuilderOn}
+                            onChange={(e) => {
+                                setQueueBuilderOn(e.target.checked);
+                                if (!e.target.checked) setSelectedIds(new Set());
+                            }}
+                            className="accent-forest-600"
+                        />
+                        <span className="text-sm font-medium text-forest-700">📋 Queue Mode</span>
+                    </label>
+                </div>
+
+                {queueBuilderOn && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-forest-500">Dwell:</span>
+                        {DWELL_PRESETS.map((p) => (
+                            <button
+                                key={p.value}
+                                type="button"
+                                onClick={() => setDwellSec(p.value)}
+                                className={`px-2 py-0.5 text-xs rounded-full transition-colors ${dwellSec === p.value
+                                        ? 'bg-forest-700 text-parchment-100'
+                                        : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
+                                    }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Category Tabs */}
@@ -236,6 +323,9 @@ export default function VaultPage() {
                             onPause={toggle}
                             onEdit={() => handleEdit(loop)}
                             onDelete={() => handleDelete(loop)}
+                            selectable={queueBuilderOn}
+                            selected={selectedIds.has(loop.id)}
+                            onToggleSelect={() => toggleSelect(loop.id)}
                         />
                     ))}
                 </div>
@@ -276,6 +366,7 @@ export default function VaultPage() {
                             <option value="study">📚 Study</option>
                             <option value="vision">🎯 Vision</option>
                             <option value="habits">⚡ Habits</option>
+                            <option value="memory">🧠 Memory</option>
                         </select>
                     </div>
 
@@ -387,10 +478,48 @@ export default function VaultPage() {
                 </div>
             </Modal>
 
-            {/* Now Playing Bar (if something is playing) */}
-            {currentLoop && (
-                <NowPlayingBar loop={currentLoop} isPlaying={isPlaying} onToggle={toggle} onStop={stop} />
+            {/* Queue Builder Sticky Bar */}
+            {queueBuilderOn && selectedIds.size > 0 && !isQueueMode && (
+                <div className="fixed bottom-0 left-0 right-0 bg-forest-700 text-parchment-100 p-4 shadow-lg z-50">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                            📋 Selected: {selectedIds.size} loop{selectedIds.size !== 1 ? 's' : ''}
+                            {dwellSec > 0 && <span className="text-parchment-300 ml-2">• {dwellSec >= 60 ? `${dwellSec / 60}m` : `${dwellSec}s`} per loop</span>}
+                            {dwellSec === 0 && <span className="text-parchment-300 ml-2">• Manual advance</span>}
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => { setSelectedIds(new Set()); }}
+                                className="px-4 py-2 text-xs font-medium bg-parchment-300 text-forest-700 rounded-lg hover:bg-parchment-400"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                onClick={handleStartQueue}
+                                className="px-4 py-2 text-xs font-bold bg-amber-500 text-forest-900 rounded-lg hover:bg-amber-400"
+                            >
+                                ▶️ Start Queue
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
+
+            {/* Now Playing Bar */}
+            {isQueueMode && queue.length > 0 ? (
+                <QueueNowPlayingBar
+                    queue={queue}
+                    queueIndex={queueIndex}
+                    isPlaying={isPlaying}
+                    onToggle={toggle}
+                    onStop={() => { stopQueue(); setQueueMode(false); }}
+                    onNext={nextInQueue}
+                    onPrev={prevInQueue}
+                    dwellSec={dwellSec}
+                />
+            ) : currentLoop && !isQueueMode ? (
+                <NowPlayingBar loop={currentLoop} isPlaying={isPlaying} onToggle={toggle} onStop={stop} />
+            ) : null}
         </div>
     );
 }
@@ -404,6 +533,9 @@ function LoopCard({
     onPause,
     onEdit,
     onDelete,
+    selectable = false,
+    selected = false,
+    onToggleSelect,
 }: {
     loop: Loop;
     isActive: boolean;
@@ -412,28 +544,42 @@ function LoopCard({
     onPause: () => void;
     onEdit: () => void;
     onDelete: () => void;
+    selectable?: boolean;
+    selected?: boolean;
+    onToggleSelect?: () => void;
 }) {
     const categoryIcons: Record<LoopCategory, string> = {
         faith: '🙏',
         study: '📖',
         vision: '🎯',
         habits: '⚡',
+        memory: '🧠',
     };
 
     return (
         <div
             className={`card hover:shadow-md transition-shadow ${isActive ? 'ring-2 ring-amber-500' : ''
-                } ${isPlaying ? 'glow-pulse' : ''}`}
+                } ${isPlaying ? 'glow-pulse' : ''} ${selected ? 'ring-2 ring-forest-600 bg-forest-50' : ''}`}
         >
             {/* Header */}
             <div className="flex items-start justify-between mb-3">
-                <div>
-                    <span className="text-sm text-forest-400">
-                        {categoryIcons[loop.category]} {loop.category}
-                    </span>
-                    <h3 className="font-serif text-lg font-semibold text-forest-700 mt-1 break-words">
-                        {loop.title}
-                    </h3>
+                <div className="flex items-start gap-2">
+                    {selectable && (
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={onToggleSelect}
+                            className="mt-1.5 accent-forest-600"
+                        />
+                    )}
+                    <div>
+                        <span className="text-sm text-forest-400">
+                            {categoryIcons[loop.category]} {loop.category}
+                        </span>
+                        <h3 className="font-serif text-lg font-semibold text-forest-700 mt-1 break-words">
+                            {loop.title}
+                        </h3>
+                    </div>
                 </div>
                 <span className={`text-xs px-2 py-1 rounded-full ${loop.sourceType === 'tts'
                     ? 'bg-blue-100 text-blue-700'
@@ -446,7 +592,7 @@ function LoopCard({
             {/* Text preview (if TTS) */}
             {loop.text && (
                 <p className="text-sm text-forest-500 mb-4 line-clamp-2">
-                    "{loop.text}"
+                    &quot;{loop.text}&quot;
                 </p>
             )}
 
@@ -489,7 +635,7 @@ function LoopCard({
     );
 }
 
-// Now Playing Bar Component
+// Now Playing Bar Component (single loop)
 function NowPlayingBar({
     loop,
     isPlaying,
@@ -535,6 +681,92 @@ function NowPlayingBar({
                     <button
                         onClick={onStop}
                         className="p-2 text-forest-400 hover:text-forest-600"
+                    >
+                        ⏹️
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Queue Now Playing Bar Component
+function QueueNowPlayingBar({
+    queue,
+    queueIndex,
+    isPlaying,
+    onToggle,
+    onStop,
+    onNext,
+    onPrev,
+    dwellSec,
+}: {
+    queue: QueueItem[];
+    queueIndex: number;
+    isPlaying: boolean;
+    onToggle: () => void;
+    onStop: () => void;
+    onNext: () => void;
+    onPrev: () => void;
+    dwellSec: number;
+}) {
+    const { currentTime, duration } = useAudioStore();
+    const current = queue[queueIndex];
+
+    if (!current) return null;
+
+    return (
+        <div className={`fixed bottom-0 left-0 right-0 bg-forest-700 text-parchment-100 p-4 shadow-lg z-50 ${isPlaying ? 'glow-pulse' : ''}`}>
+            <div className="max-w-4xl mx-auto flex items-center gap-4">
+                {/* Track Info */}
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">
+                        📋 {queueIndex + 1} of {queue.length}: {current.title}
+                    </p>
+                    <p className="text-sm text-parchment-300">
+                        {formatDuration(currentTime)} / {formatDuration(duration)}
+                        {dwellSec > 0 && (
+                            <span className="ml-3 text-parchment-400">
+                                Auto-next: {dwellSec >= 60 ? `${dwellSec / 60}m` : `${dwellSec}s`}
+                            </span>
+                        )}
+                        {dwellSec === 0 && (
+                            <span className="ml-3 text-parchment-400">Manual advance</span>
+                        )}
+                    </p>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onPrev}
+                        disabled={queueIndex <= 0}
+                        className="p-2 text-parchment-300 hover:text-parchment-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Previous"
+                    >
+                        ⏮️
+                    </button>
+                    <button
+                        onClick={onToggle}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-105 transition-transform ${isPlaying
+                            ? 'bg-amber-500 text-forest-900'
+                            : 'bg-parchment-100 text-forest-700'
+                            }`}
+                    >
+                        {isPlaying ? '⏸️' : '▶️'}
+                    </button>
+                    <button
+                        onClick={onNext}
+                        disabled={queueIndex >= queue.length - 1}
+                        className="p-2 text-parchment-300 hover:text-parchment-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Next"
+                    >
+                        ⏭️
+                    </button>
+                    <button
+                        onClick={onStop}
+                        className="p-2 text-parchment-300 hover:text-parchment-100"
+                        title="Stop queue"
                     >
                         ⏹️
                     </button>

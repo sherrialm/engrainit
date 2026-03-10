@@ -186,6 +186,13 @@ export class AudioEngine {
     }
 
     /**
+     * Get the underlying AudioContext (for sharing with background audio)
+     */
+    getAudioContext(): AudioContext | null {
+        return this.audioContext;
+    }
+
+    /**
      * Check if currently playing
      */
     getIsPlaying(): boolean {

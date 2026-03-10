@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { useTierStore } from '@/stores/tierStore';
 import { TIER_DISPLAY } from '@/config/tiers';
+import { HomeIcon, VaultIcon, ProgressIcon } from '@/components/Icons';
 
 export default function AppLayout({
     children,
@@ -89,11 +90,17 @@ export default function AppLayout({
                                     {TIER_DISPLAY[tier].emoji} {TIER_DISPLAY[tier].name}
                                 </a>
                             )}
-                            <a href="/app" className="btn-ghost text-sm">
-                                Create
+                            <a href="/app" className="btn-ghost text-sm flex items-center gap-1.5">
+                                <HomeIcon className="w-4 h-4" />
+                                Home
                             </a>
-                            <a href="/app/vault" className="btn-ghost text-sm">
+                            <a href="/app/vault" className="btn-ghost text-sm flex items-center gap-1.5">
+                                <VaultIcon className="w-4 h-4" />
                                 Vault
+                            </a>
+                            <a href="/app/progress" className="btn-ghost text-sm flex items-center gap-1.5">
+                                <ProgressIcon className="w-4 h-4" />
+                                Progress
                             </a>
                             <button
                                 onClick={() => signOut()}
@@ -128,16 +135,23 @@ export default function AppLayout({
                         <a
                             href="/app"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
+                            className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
-                            ✍️ Create
+                            <HomeIcon className="w-4 h-4" /> Home
                         </a>
                         <a
                             href="/app/vault"
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
+                            className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
-                            🗃️ Vault
+                            <VaultIcon className="w-4 h-4" /> Vault
+                        </a>
+                        <a
+                            href="/app/progress"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
+                        >
+                            <ProgressIcon className="w-4 h-4" /> Progress
                         </a>
                         {tier !== 'pro' && (
                             <a
@@ -145,7 +159,7 @@ export default function AppLayout({
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="block py-2 px-3 rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
                             >
-                                ✨ Upgrade
+                                Upgrade
                             </a>
                         )}
                         <button

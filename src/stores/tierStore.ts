@@ -62,9 +62,25 @@ export const useTierStore = create<TierState>((set, get) => ({
                 }
 
                 // If owner, ensure they're Pro
-                const tier = isOwner ? 'pro' : (data.tier || 'free');
+                let tier: UserTier = isOwner ? 'pro' : (data.tier || 'free') as UserTier;
                 if (isOwner && data.tier !== 'pro') {
                     await updateDoc(profileRef, { tier: 'pro' });
+                }
+
+                // Check billing doc for Stripe-managed tier (takes priority)
+                if (!isOwner) {
+                    try {
+                        const billingRef = doc(db, 'users', userId, 'billing', 'status');
+                        const billingSnap = await getDoc(billingRef);
+                        if (billingSnap.exists()) {
+                            const billingData = billingSnap.data();
+                            if (billingData.tier === 'pro' || billingData.tier === 'core') {
+                                tier = billingData.tier as UserTier;
+                            }
+                        }
+                    } catch (billingErr) {
+                        console.warn('[Tier] Failed to check billing status:', billingErr);
+                    }
                 }
 
                 console.log('[Tier] Loaded profile:', { tier, generationsUsed });

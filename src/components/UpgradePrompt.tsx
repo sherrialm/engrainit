@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useTierStore } from '@/stores/tierStore';
 import { TIER_DISPLAY, TIER_LIMITS } from '@/config/tiers';
 import { UserTier } from '@/types';
+import { startProCheckout } from '@/services/BillingService';
 
 interface UpgradePromptProps {
     reason: 'generations' | 'loops' | 'voice' | 'document' | 'textLength';
@@ -12,6 +14,8 @@ interface UpgradePromptProps {
 
 export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps) {
     const { tier } = useTierStore();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const messages: Record<string, string> = {
         generations: "You've used all your free generations this month.",
@@ -26,6 +30,18 @@ export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps)
 
     const nextTier: UserTier = tier === 'free' ? 'core' : 'pro';
     const nextTierInfo = TIER_DISPLAY[nextTier];
+
+    const handleUpgrade = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            await startProCheckout();
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to start checkout';
+            setError(message);
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
@@ -43,12 +59,23 @@ export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps)
                 <TierBadge tier="pro" current={tier} />
             </div>
 
-            <div className="flex gap-3 justify-center">
+            {error && (
+                <p className="text-red-500 text-xs mb-3">{error}</p>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                    onClick={handleUpgrade}
+                    disabled={isLoading}
+                    className="px-6 py-2 rounded-lg bg-forest-600 text-parchment-100 font-semibold hover:bg-forest-700 transition-colors text-sm disabled:opacity-50"
+                >
+                    {isLoading ? 'Redirecting…' : `Upgrade to Pro`}
+                </button>
                 <Link
                     href="/app/upgrade"
-                    className="px-6 py-2 rounded-lg bg-forest-600 text-parchment-100 font-semibold hover:bg-forest-700 transition-colors text-sm"
+                    className="px-4 py-2 text-forest-500 hover:text-forest-600 text-sm"
                 >
-                    Upgrade to {nextTierInfo.name} — {nextTierInfo.price}
+                    Compare plans
                 </Link>
                 {onDismiss && (
                     <button
@@ -76,3 +103,4 @@ function TierBadge({ tier, current }: { tier: UserTier; current: UserTier }) {
         </div>
     );
 }
+

@@ -13,6 +13,7 @@ interface VaultState {
     addLoop: (userId: string, loop: Omit<Loop, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'playCount'>) => Promise<Loop>;
     updateLoop: (userId: string, loopId: string, updates: Partial<Loop>) => Promise<void>;
     removeLoop: (userId: string, loopId: string, audioUrl?: string) => Promise<void>;
+    togglePin: (userId: string, loopId: string) => Promise<void>;
     setCategory: (category: LoopCategory | 'all') => void;
     clearError: () => void;
 }
@@ -84,6 +85,32 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         }
     },
 
+    togglePin: async (userId: string, loopId: string) => {
+        const loop = get().loops.find((l) => l.id === loopId);
+        if (!loop) return;
+
+        const newPinned = !loop.pinned;
+
+        // Optimistic update
+        set((state) => ({
+            loops: state.loops.map((l) =>
+                l.id === loopId ? { ...l, pinned: newPinned } : l
+            ),
+        }));
+
+        try {
+            await LoopService.updateLoop(userId, loopId, { pinned: newPinned });
+        } catch (err: any) {
+            // Revert
+            set((state) => ({
+                loops: state.loops.map((l) =>
+                    l.id === loopId ? { ...l, pinned: !newPinned } : l
+                ),
+                error: err.message || 'Failed to pin loop',
+            }));
+        }
+    },
+
     setCategory: (category: LoopCategory | 'all') => {
         set({ selectedCategory: category });
     },
@@ -99,3 +126,10 @@ export function useFilteredLoops() {
     if (selectedCategory === 'all') return loops;
     return loops.filter((loop) => loop.category === selectedCategory);
 }
+
+// Selector for pinned loops
+export function usePinnedLoops() {
+    const loops = useVaultStore((state) => state.loops);
+    return loops.filter((loop) => loop.pinned);
+}
+
