@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useHabitStore } from '@/stores/habitStore';
 import { ProgressIcon, PlusIcon, CheckIcon } from '@/components/Icons';
 import { computeHabitStreak } from '@/services/HabitService';
+import { playHabitChime, playMilestoneChime } from '@/services/chime';
 import type { Habit, HabitGoalCategory } from '@/types';
 
 const CATEGORY_OPTIONS: { id: HabitGoalCategory; label: string }[] = [
@@ -23,7 +24,7 @@ const CATEGORY_OPTIONS: { id: HabitGoalCategory; label: string }[] = [
     { id: 'learning', label: 'Learning' },
 ];
 
-const MILESTONE_DAYS = [3, 7, 14, 30];
+const MILESTONE_DAYS = [7, 14, 30];
 
 export default function ProgressPage() {
     const { user } = useAuthStore();
@@ -70,8 +71,12 @@ export default function ProgressPage() {
         // Check for milestone after toggling
         const updatedEntries = { ...habit.entries, [date]: !habit.entries[date] };
         if (updatedEntries[date]) {
+            // Play soft chime on every completion
+            playHabitChime();
+
             const streak = computeHabitStreak(updatedEntries);
             if (MILESTONE_DAYS.includes(streak)) {
+                playMilestoneChime();
                 setMilestoneMessage(`${streak}-day streak on "${habit.name}"! 🎉`);
                 setShowConfetti(true);
                 setTimeout(() => {

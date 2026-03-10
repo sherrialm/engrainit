@@ -17,6 +17,10 @@ interface TierState {
     canSaveLoop: (currentLoopCount: number) => boolean;
     canUseVoice: (voiceId: string) => boolean;
     canUploadDocument: () => boolean;
+    canAddHabit: (currentHabitCount: number) => boolean;
+    canUseMemoryEngine: (topicsUsedThisMonth: number) => boolean;
+    canUseSmartResurfacing: () => boolean;
+    canUseSessionType: (sessionTypeId: string) => boolean;
     getMaxTextLength: () => number;
     getRemainingGenerations: () => number;
 }
@@ -154,6 +158,26 @@ export const useTierStore = create<TierState>((set, get) => ({
     canUploadDocument: () => {
         const { tier } = get();
         return TIER_LIMITS[tier].hasDocumentUpload;
+    },
+
+    canAddHabit: (currentHabitCount: number) => {
+        const { tier } = get();
+        return currentHabitCount < TIER_LIMITS[tier].maxHabits;
+    },
+
+    canUseMemoryEngine: (topicsUsedThisMonth: number) => {
+        const { tier } = get();
+        return topicsUsedThisMonth < TIER_LIMITS[tier].maxMemoryTopicsPerMonth;
+    },
+
+    canUseSmartResurfacing: () => {
+        const { tier } = get();
+        return TIER_LIMITS[tier].hasSmartResurfacing;
+    },
+
+    canUseSessionType: (sessionTypeId: string) => {
+        const { tier } = get();
+        return TIER_LIMITS[tier].availableSessionTypes.includes(sessionTypeId);
     },
 
     getMaxTextLength: () => {

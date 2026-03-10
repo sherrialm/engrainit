@@ -53,13 +53,19 @@ export function buildIntentSummary(input: LoopGenerationInput): string {
 /**
  * System prompt for AI loop generation.
  * Real LLM providers will use this as the system message.
+ *
+ * TUNING NOTES (for real LLM integration):
+ * - Sentence length variation is critical for natural cadence
+ * - Identity reinforcement should appear in first and last sentences
+ * - Avoid generic affirmations ("I am great") — be specific to user context
+ * - Target 60-90 seconds when read aloud at natural pace
  */
 export function buildLoopGenerationPrompt(input: LoopGenerationInput): string {
     const moods = input.moods.map(m => MOOD_LABELS[m] || m).join(', ');
     const goals = input.goals.map(g => GOAL_LABELS[g] || g).join(', ');
     const problems = input.problems.map(p => PROBLEM_LABELS[p] || p).join(', ');
 
-    return `You are a personal mental alignment coach. Generate a concise, powerful mental loop for the user.
+    return `You are a personal mental alignment coach creating a mental loop for audio repetition.
 
 CONTEXT:
 - Current mood: ${moods || 'Not specified'}
@@ -70,13 +76,34 @@ ${input.details ? `- Additional context: "${input.details}"` : ''}
 REQUIREMENTS:
 - Write in first person ("I am...", "I choose...", "I practice...")
 - Present tense, positive framing only
-- Strong cadence suitable for repetition
+- Strong cadence suitable for repetition — vary sentence lengths (short punchy + longer flowing)
 - 3-5 sentences, 50-120 words total
-- Include identity reinforcement
-- End with an empowering statement
+- Begin with identity reinforcement ("I am...")
+- End with an empowering action statement
+- Be SPECIFIC to the user's mood, goals, and challenges — avoid generic affirmations
+- The text should feel powerful when read aloud repeatedly
 
-Also suggest:
-- A short, descriptive loop name (2-4 words)
-- A recommended voice (david, rachel, calm-mentor, or focused-coach)
-- A repetition interval in seconds (180-600 based on length)`;
+OUTPUT FORMAT (respond in valid JSON):
+{
+  "name": "2-4 word descriptive title",
+  "text": "The loop text, 50-120 words",
+  "voiceId": "one of: david, rachel, calm-mentor, focused-coach",
+  "intervalSeconds": 180-600 (based on complexity)
+}
+
+EXAMPLE OF STRONG OUTPUT:
+{
+  "name": "Focused Clarity",
+  "text": "I am clear. I am focused. Every challenge I face sharpens my ability to think, decide, and act with precision. Distractions do not own me — I choose where my energy flows. When my mind wanders, I return. When doubt surfaces, I breathe and recommit. I am building something meaningful, and every focused minute compounds into mastery.",
+  "voiceId": "focused-coach",
+  "intervalSeconds": 300
+}
+
+EXAMPLE OF WEAK OUTPUT (avoid this):
+{
+  "name": "Positive Vibes",
+  "text": "I am great. I am amazing. Everything is wonderful. I believe in myself. Today will be a good day.",
+  "voiceId": "calm-mentor",
+  "intervalSeconds": 180
+}`;
 }

@@ -91,6 +91,10 @@ export interface TierLimits {
     availableVoices: string[];  // Voice IDs allowed
     hasDocumentUpload: boolean;
     hasBackgroundSounds: boolean;
+    maxHabits: number;                  // Max tracked habits
+    maxMemoryTopicsPerMonth: number;    // Memory engine limit
+    hasSmartResurfacing: boolean;       // Smart loop suggestions
+    availableSessionTypes: string[];    // Allowed session type IDs
 }
 
 /**

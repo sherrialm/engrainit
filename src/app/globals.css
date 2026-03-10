@@ -232,16 +232,16 @@ h6 {
   }
 }
 
-/* ── Confetti burst animation ────────────────────────────────── */
+/* ── Confetti burst animation (subtle, rewarding) ────────────── */
 @keyframes confettiBurst {
   0% {
     transform: scale(0) rotate(0deg);
     opacity: 1;
   }
 
-  50% {
-    transform: scale(1.2) rotate(180deg);
-    opacity: 0.8;
+  40% {
+    transform: scale(1.05) rotate(120deg);
+    opacity: 0.9;
   }
 
   100% {
@@ -251,7 +251,32 @@ h6 {
 }
 
 .animate-confetti {
-  animation: confettiBurst 0.6s ease-out forwards;
+  animation: confettiBurst 1.2s ease-out forwards;
+}
+
+/* ── Glow pulse for morning flow ─────────────────────────────── */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(45, 90, 39, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(45, 90, 39, 0.5), 0 0 48px rgba(255, 191, 0, 0.15);
+  }
+}
+
+.glow-pulse {
+  animation: glowPulse 2.5s ease-in-out infinite;
+}
+
+/* ── Check bounce micro-animation ────────────────────────────── */
+@keyframes checkBounce {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-check-bounce {
+  animation: checkBounce 0.25s ease-out;
 }
 
 /* ── Habit completion feedback ───────────────────────────────── */
