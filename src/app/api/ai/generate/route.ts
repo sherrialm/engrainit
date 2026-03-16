@@ -17,7 +17,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // ── Environment ───────────────────────────────────────────────
 
 const API_KEY = process.env.GOOGLE_AI_API_KEY || '';
-const MODEL_NAME = 'gemini-2.0-flash';
+const MODEL_NAME = 'gemini-1.5-flash';
 
 function isGeminiAvailable(): boolean {
     return API_KEY.length > 10;
