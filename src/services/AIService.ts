@@ -8,10 +8,15 @@
  *
  * Architecture: UI → AIService → PromptTemplates → LLMProvider
  *
- * Uses MockProvider by default. Swap to a real provider by
- * changing the provider instantiation below.
+ * Provider chain:
+ *   1. APIProvider (calls /api/ai/generate → Gemini on server)
+ *   2. MockProvider (deterministic fallback for dev/testing)
+ *
+ * If APIProvider fails for any reason (missing key, timeout,
+ * malformed response), MockProvider handles it seamlessly.
  */
 
+import { APIProvider } from './llm/APIProvider';
 import { MockProvider } from './llm/MockProvider';
 import { LLMProvider } from './llm/LLMProvider';
 import { buildIntentSummary, buildLoopGenerationPrompt } from './prompts/LoopPrompts';
@@ -24,12 +29,12 @@ import {
     BriefingContext,
 } from '@/types';
 
-// ── Provider Instance ─────────────────────────────────────────
-// Change this line to swap AI providers (e.g., new GeminiProvider())
-const provider: LLMProvider = new MockProvider();
+// ── Provider Chain ────────────────────────────────────────────
+// Try APIProvider first (real AI), fall back to MockProvider.
+const apiProvider: LLMProvider = new APIProvider();
+const mockProvider: LLMProvider = new MockProvider();
 
 // ── Timeout wrapper ───────────────────────────────────────────
-// Protects against slow or hung LLM provider responses.
 const DEFAULT_TIMEOUT_MS = 30_000; // 30 seconds
 
 function withTimeout<T>(promise: Promise<T>, ms = DEFAULT_TIMEOUT_MS): Promise<T> {
@@ -39,6 +44,32 @@ function withTimeout<T>(promise: Promise<T>, ms = DEFAULT_TIMEOUT_MS): Promise<T
             setTimeout(() => reject(new Error(`AI response timed out after ${ms / 1000}s`)), ms)
         ),
     ]);
+}
+
+// ── Observability ─────────────────────────────────────────────
+
+type AIEvent = 'success' | 'timeout' | 'parse_error' | 'provider_error' | 'fallback';
+
+function logAI(action: string, event: AIEvent, detail?: string, elapsed?: number) {
+    const tag = `[AI:${action}]`;
+    const suffix = elapsed ? ` (${elapsed}ms)` : '';
+    switch (event) {
+        case 'success':
+            console.log(`${tag} ✓ Success${suffix}`, detail || '');
+            break;
+        case 'timeout':
+            console.warn(`${tag} ⏱ Timeout${suffix}`, detail || '');
+            break;
+        case 'parse_error':
+            console.warn(`${tag} ⚠ Parse error:`, detail || '');
+            break;
+        case 'provider_error':
+            console.warn(`${tag} ✗ Provider error:`, detail || '');
+            break;
+        case 'fallback':
+            console.log(`${tag} ↩ Using fallback${suffix}`, detail || '');
+            break;
+    }
 }
 
 // ── Fallback defaults ─────────────────────────────────────────
@@ -62,54 +93,70 @@ const FALLBACK_BRIEFING = 'Good morning. Today is a day of steady progress. Star
 
 // ── Loop Generation ───────────────────────────────────────────
 
-/**
- * Generate a human-readable summary of the user's selections
- * for the AI confirmation step.
- */
 export function summarizeIntent(input: LoopGenerationInput): string {
     return buildIntentSummary(input);
 }
 
 /**
  * Generate an AI-powered mental alignment loop.
- * Wraps provider call with JSON validation and fallback.
+ * Tries real AI first, falls back to mock.
  */
 export async function generateLoop(input: LoopGenerationInput): Promise<GeneratedLoopSuggestion> {
-    try {
-        const prompt = buildLoopGenerationPrompt(input);
-        const result = await withTimeout(provider.generateLoop({ prompt }));
+    const prompt = buildLoopGenerationPrompt(input);
+    const start = Date.now();
 
-        // Validate required fields
+    // Try real AI
+    try {
+        const result = await withTimeout(apiProvider.generateLoop({ prompt }));
+        const elapsed = Date.now() - start;
+
         if (!result.name || typeof result.name !== 'string') throw new Error('Invalid loop name');
         if (!result.text || typeof result.text !== 'string') throw new Error('Invalid loop text');
 
+        logAI('loop', 'success', `"${result.name}"`, elapsed);
         return {
             name: sanitizeLoopName(result.name),
             text: result.text.trim(),
             voiceId: result.voiceId || 'calm-mentor',
             intervalSeconds: typeof result.intervalSeconds === 'number' ? result.intervalSeconds : 240,
         };
-    } catch (err) {
-        console.error('[AIService] generateLoop failed, using fallback:', err);
+    } catch (apiErr: any) {
+        const elapsed = Date.now() - start;
+        const isTimeout = apiErr.message?.includes('timed out');
+        logAI('loop', isTimeout ? 'timeout' : 'provider_error', apiErr.message, elapsed);
+    }
+
+    // Fall back to mock
+    try {
+        const result = await mockProvider.generateLoop({ prompt });
+        logAI('loop', 'fallback', `mock: "${result.name}"`);
+        return {
+            name: sanitizeLoopName(result.name),
+            text: result.text.trim(),
+            voiceId: result.voiceId || 'calm-mentor',
+            intervalSeconds: result.intervalSeconds || 240,
+        };
+    } catch (mockErr) {
+        logAI('loop', 'fallback', 'using static fallback');
         return FALLBACK_LOOP;
     }
 }
 
 // ── Memory Engine ─────────────────────────────────────────────
 
-/**
- * Generate memory aids (mnemonic, chunks with intervals, schedule).
- * Wraps provider call with validation and fallback.
- */
 export async function generateMemoryAids(inputText: string): Promise<MemoryAidsResult> {
-    try {
-        const prompt = buildMemoryAidsPrompt(inputText);
-        const result = await withTimeout(provider.generateMemoryAids({ prompt }));
+    const prompt = buildMemoryAidsPrompt(inputText);
+    const start = Date.now();
 
-        // Validate
+    // Try real AI
+    try {
+        const result = await withTimeout(apiProvider.generateMemoryAids({ prompt }));
+        const elapsed = Date.now() - start;
+
         if (!result.mnemonic || typeof result.mnemonic !== 'string') throw new Error('Invalid mnemonic');
         if (!Array.isArray(result.chunks) || result.chunks.length === 0) throw new Error('Invalid chunks');
 
+        logAI('memory', 'success', `${result.chunks.length} chunks`, elapsed);
         return {
             mnemonic: result.mnemonic,
             chunks: result.chunks.map(c => ({
@@ -119,47 +166,66 @@ export async function generateMemoryAids(inputText: string): Promise<MemoryAidsR
             })),
             schedule: result.schedule || 'Review after 1 hour, then 1 day, then 3 days, then 7 days.',
         };
-    } catch (err) {
-        console.error('[AIService] generateMemoryAids failed, using fallback:', err);
+    } catch (apiErr: any) {
+        const elapsed = Date.now() - start;
+        const isTimeout = apiErr.message?.includes('timed out');
+        logAI('memory', isTimeout ? 'timeout' : 'provider_error', apiErr.message, elapsed);
+    }
+
+    // Fall back to mock
+    try {
+        const result = await mockProvider.generateMemoryAids({ prompt });
+        logAI('memory', 'fallback', 'mock provider');
+        return result;
+    } catch {
+        logAI('memory', 'fallback', 'using static fallback');
         return FALLBACK_MEMORY;
     }
 }
 
 // ── Daily Briefing ────────────────────────────────────────────
 
-/**
- * Generate a personalized daily mental briefing.
- * Wraps provider call with fallback.
- */
 export async function generateBriefing(context: BriefingContext): Promise<string> {
+    const prompt = buildBriefingPrompt(context);
+    const start = Date.now();
+
+    // Try real AI
     try {
-        const prompt = buildBriefingPrompt(context);
-        const result = await withTimeout(provider.generateBriefing({ prompt }));
+        const result = await withTimeout(apiProvider.generateBriefing({ prompt }));
+        const elapsed = Date.now() - start;
 
         if (!result || typeof result !== 'string' || result.trim().length < 20) {
             throw new Error('Briefing too short or invalid');
         }
 
+        logAI('briefing', 'success', `${result.trim().split(' ').length} words`, elapsed);
         return result.trim();
-    } catch (err) {
-        console.error('[AIService] generateBriefing failed, using fallback:', err);
+    } catch (apiErr: any) {
+        const elapsed = Date.now() - start;
+        const isTimeout = apiErr.message?.includes('timed out');
+        logAI('briefing', isTimeout ? 'timeout' : 'provider_error', apiErr.message, elapsed);
+    }
+
+    // Fall back to mock
+    try {
+        const result = await mockProvider.generateBriefing({ prompt });
+        logAI('briefing', 'fallback', 'mock provider');
+        return result;
+    } catch {
+        logAI('briefing', 'fallback', 'using static fallback');
         return FALLBACK_BRIEFING;
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────
 
-/**
- * Clean up loop names to be concise and scannable.
- * Removes quotes, trims, and title-cases.
- */
 function sanitizeLoopName(name: string): string {
     return name
         .replace(/["']/g, '')
         .replace(/\s+/g, ' ')
         .trim()
         .split(' ')
-        .slice(0, 4)  // Max 4 words
+        .slice(0, 4)
         .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
 }
