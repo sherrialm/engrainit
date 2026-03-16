@@ -28,6 +28,19 @@ import {
 // Change this line to swap AI providers (e.g., new GeminiProvider())
 const provider: LLMProvider = new MockProvider();
 
+// ── Timeout wrapper ───────────────────────────────────────────
+// Protects against slow or hung LLM provider responses.
+const DEFAULT_TIMEOUT_MS = 30_000; // 30 seconds
+
+function withTimeout<T>(promise: Promise<T>, ms = DEFAULT_TIMEOUT_MS): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`AI response timed out after ${ms / 1000}s`)), ms)
+        ),
+    ]);
+}
+
 // ── Fallback defaults ─────────────────────────────────────────
 
 const FALLBACK_LOOP: GeneratedLoopSuggestion = {
@@ -64,7 +77,7 @@ export function summarizeIntent(input: LoopGenerationInput): string {
 export async function generateLoop(input: LoopGenerationInput): Promise<GeneratedLoopSuggestion> {
     try {
         const prompt = buildLoopGenerationPrompt(input);
-        const result = await provider.generateLoop({ prompt });
+        const result = await withTimeout(provider.generateLoop({ prompt }));
 
         // Validate required fields
         if (!result.name || typeof result.name !== 'string') throw new Error('Invalid loop name');
@@ -91,7 +104,7 @@ export async function generateLoop(input: LoopGenerationInput): Promise<Generate
 export async function generateMemoryAids(inputText: string): Promise<MemoryAidsResult> {
     try {
         const prompt = buildMemoryAidsPrompt(inputText);
-        const result = await provider.generateMemoryAids({ prompt });
+        const result = await withTimeout(provider.generateMemoryAids({ prompt }));
 
         // Validate
         if (!result.mnemonic || typeof result.mnemonic !== 'string') throw new Error('Invalid mnemonic');
@@ -121,7 +134,7 @@ export async function generateMemoryAids(inputText: string): Promise<MemoryAidsR
 export async function generateBriefing(context: BriefingContext): Promise<string> {
     try {
         const prompt = buildBriefingPrompt(context);
-        const result = await provider.generateBriefing({ prompt });
+        const result = await withTimeout(provider.generateBriefing({ prompt }));
 
         if (!result || typeof result !== 'string' || result.trim().length < 20) {
             throw new Error('Briefing too short or invalid');

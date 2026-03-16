@@ -243,23 +243,31 @@ export default function GenerateLoopPage() {
             {/* Step 3: AI Confirmation */}
             {step === 3 && (
                 <div className="space-y-4">
-                    <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5">
-                        <p className="text-sm text-forest-700 leading-relaxed">
-                            {intentSummary}
-                        </p>
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => setStep(2)} className="btn-ghost flex-1">
-                            Adjust
-                        </button>
-                        <button
-                            onClick={handleGenerate}
-                            disabled={isGenerating}
-                            className="btn-primary flex-1 disabled:opacity-50"
-                        >
-                            {isGenerating ? 'Generating...' : 'Confirm & Generate'}
-                        </button>
-                    </div>
+                    {isGenerating ? (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                            <div className="w-10 h-10 border-2 border-forest-300 border-t-forest-700 rounded-full animate-spin" />
+                            <p className="text-sm text-forest-500">Crafting your loop...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5">
+                                <p className="text-sm text-forest-700 leading-relaxed">
+                                    {intentSummary}
+                                </p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setStep(2)} className="btn-ghost flex-1">
+                                    Adjust
+                                </button>
+                                <button
+                                    onClick={handleGenerate}
+                                    className="btn-primary flex-1"
+                                >
+                                    Confirm &amp; Generate
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 

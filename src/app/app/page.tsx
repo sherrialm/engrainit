@@ -289,6 +289,11 @@ export default function AppDashboard() {
                         <p className="text-parchment-300 text-sm">
                             ~90 second mental alignment ritual
                         </p>
+                        {!morningDone && (
+                            <p className="text-parchment-400 text-xs mt-1">
+                                Begin your day with a short mental alignment.
+                            </p>
+                        )}
                     </div>
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
                         morningDone
@@ -308,6 +313,21 @@ export default function AppDashboard() {
                     </p>
                 )}
             </Link>
+
+            {/* ── First Loop Guidance (empty vault) ──────────── */}
+            {loops.length === 0 && (
+                <Link
+                    href="/app/generate"
+                    className="block bg-amber-50 border border-amber-200 rounded-xl p-5 text-center hover:bg-amber-100 transition-colors"
+                >
+                    <p className="text-sm font-medium text-amber-800 mb-1">
+                        Create your first loop to begin training your mind.
+                    </p>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
+                        Generate Loop →
+                    </span>
+                </Link>
+            )}
 
             {/* ── Quick Loops ───────────────────────────────── */}
             <section className="space-y-3">
