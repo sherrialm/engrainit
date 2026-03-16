@@ -206,12 +206,12 @@ export default function MorningFlowPage() {
             case 'identity':
                 return {
                     title: identityLoop?.title || 'Identity Reinforcement',
-                    body: identityLoop?.text || "I am becoming the person I'm meant to be. Every thought, every action, every choice reinforces my identity.",
+                    body: identityLoop?.text || 'I am becoming who I am meant to be.\nEvery choice reinforces my identity.\nI grow stronger with each repetition.',
                 };
             case 'focus':
                 return {
                     title: focusLoop?.title || 'Focus Alignment',
-                    body: focusLoop?.text || "I am focused. I am clear. I direct my energy toward what matters most.",
+                    body: focusLoop?.text || 'I am focused and clear.\nI direct my energy toward what matters.\nI move with intention.',
                 };
             case 'encouragement':
                 return {
@@ -240,6 +240,9 @@ export default function MorningFlowPage() {
                         </h1>
                         <p className="text-forest-500">
                             ~90 second mental alignment ritual
+                        </p>
+                        <p className="text-xs text-forest-400 mt-1">
+                            Train your mind through intelligent repetition.
                         </p>
                     </div>
 

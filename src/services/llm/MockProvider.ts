@@ -480,31 +480,31 @@ export class MockProvider implements LLMProvider {
     }
 
     async generateLoop(_input: GenerateLoopInput): Promise<GenerateLoopOutput> {
-        // Deterministic mock responses based on prompt content
+        // Deterministic mock responses — optimised for repetition (20-50 words)
         const loopVariants: GenerateLoopOutput[] = [
             {
                 name: 'Morning Focus',
-                text: 'I am fully present and focused. My mind is clear, my energy is steady, and I approach each task with calm confidence. I choose intention over distraction. Today, I move with purpose and complete what matters most.',
-                voiceId: 'david',
-                intervalSeconds: 300,
-            },
-            {
-                name: 'Calm the Mind',
-                text: 'I release tension from my body and my mind. I breathe deeply and allow peace to fill every part of me. I am safe in this moment. Worry has no hold on me — I choose stillness and clarity.',
-                voiceId: 'calm-mentor',
+                text: 'I am focused and steady.\nMy mind is clear, my energy is calm.\nI finish the first task before noon.\nI move with purpose.',
+                voiceId: 'focused-coach',
                 intervalSeconds: 240,
             },
             {
+                name: 'Calm Reset',
+                text: 'I release tension from my body.\nI breathe deeply and allow peace in.\nI am safe in this moment.\nI choose stillness and clarity.',
+                voiceId: 'calm-mentor',
+                intervalSeconds: 180,
+            },
+            {
                 name: 'Confidence Builder',
-                text: 'I am capable and prepared. I trust my abilities and stand firm in my worth. Every challenge is an opportunity to grow stronger. I speak with conviction and act with boldness.',
+                text: 'I am capable and prepared.\nEvery challenge sharpens me.\nI speak with conviction.\nI act with boldness.',
                 voiceId: 'focused-coach',
-                intervalSeconds: 300,
+                intervalSeconds: 240,
             },
             {
                 name: 'Steady Discipline',
-                text: 'I show up every day, even when it is hard. Discipline is my foundation and consistency is my strength. I do not wait for motivation — I create momentum through action. I am building the life I want, one day at a time.',
+                text: 'I show up every day.\nDiscipline is my foundation.\nI create momentum through action.\nI am building the life I want.',
                 voiceId: 'david',
-                intervalSeconds: 360,
+                intervalSeconds: 240,
             },
         ];
 

@@ -160,9 +160,14 @@ export default function GenerateLoopPage() {
             {/* Header */}
             <div className="flex items-center gap-3">
                 <LoopIcon className="w-6 h-6 text-forest-700" />
-                <h1 className="font-serif text-2xl font-bold text-forest-700">
-                    Generate Loop
-                </h1>
+                <div>
+                    <h1 className="font-serif text-2xl font-bold text-forest-700">
+                        Generate Loop
+                    </h1>
+                    <p className="text-xs text-forest-400">
+                        Loops reinforce the thoughts you want to repeat.
+                    </p>
+                </div>
             </div>
 
             {/* Progress indicator */}

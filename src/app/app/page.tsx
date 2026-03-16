@@ -53,7 +53,9 @@ interface Suggestion {
 
 function getSuggestions(loops: Loop[]): Suggestion[] {
     const now = new Date();
-    const isBeforeNoon = now.getHours() < 12;
+    const hour = now.getHours();
+    const isBeforeNoon = hour < 12;
+    const isAfternoon = hour >= 12 && hour < 17;
     const suggestions: Suggestion[] = [];
 
     // 1. Dormant loops (not updated in 7+ days)
@@ -69,7 +71,7 @@ function getSuggestions(loops: Loop[]): Suggestion[] {
         });
     }
 
-    // 2. Morning-ready (identity/focus tags, before noon)
+    // 2. Time-aware suggestions
     if (isBeforeNoon && suggestions.length < 3) {
         const morningReady = loops
             .filter(l => l.tags?.some(t => t === 'identity' || t === 'focus'))
@@ -78,9 +80,23 @@ function getSuggestions(loops: Loop[]): Suggestion[] {
 
         for (const loop of morningReady) {
             if (suggestions.length >= 3) break;
+            const tag = loop.tags?.includes('identity') ? 'identity' : 'focus';
             suggestions.push({
                 loop,
-                reason: 'Great for morning alignment',
+                reason: tag === 'identity' ? 'Reinforce your identity this morning' : 'Set your focus for the day',
+            });
+        }
+    } else if (isAfternoon && suggestions.length < 3) {
+        const focusLoops = loops
+            .filter(l => l.tags?.some(t => t === 'focus'))
+            .filter(l => !suggestions.some(s => s.loop.id === l.id))
+            .slice(0, 2);
+
+        for (const loop of focusLoops) {
+            if (suggestions.length >= 3) break;
+            suggestions.push({
+                loop,
+                reason: 'Refocus for the afternoon',
             });
         }
     }
@@ -254,6 +270,11 @@ export default function AppDashboard() {
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+            {/* ── Brand Statement ──────────────────────────────── */}
+            <p className="text-xs text-forest-400 tracking-wide text-center">
+                What you repeat shapes who you become.
+            </p>
 
             {/* ── Start My Day ──────────────────────────────── */}
             <Link

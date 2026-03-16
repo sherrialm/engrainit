@@ -3,6 +3,11 @@
  *
  * Separated from AIService so prompts are easily editable
  * and swappable without touching service logic.
+ *
+ * DESIGN PRINCIPLE:
+ * Loops are optimized for repetition-based mental training.
+ * Ideal loop = 7-18 seconds spoken = 20-50 words.
+ * Structure: Short affirmation → Short reinforcement → Short directive.
  */
 
 import { LoopGenerationInput } from '@/types';
@@ -52,20 +57,20 @@ export function buildIntentSummary(input: LoopGenerationInput): string {
 
 /**
  * System prompt for AI loop generation.
- * Real LLM providers will use this as the system message.
  *
- * TUNING NOTES (for real LLM integration):
- * - Sentence length variation is critical for natural cadence
- * - Identity reinforcement should appear in first and last sentences
- * - Avoid generic affirmations ("I am great") — be specific to user context
- * - Target 60-90 seconds when read aloud at natural pace
+ * KEY CONSTRAINTS:
+ * - 20-50 words total (7-18 seconds spoken)
+ * - 3-5 short lines, NOT paragraphs
+ * - Each line stands alone when repeated
+ * - Present tense, first person, positive framing
+ * - Clear rhythm and cadence for audio repetition
  */
 export function buildLoopGenerationPrompt(input: LoopGenerationInput): string {
     const moods = input.moods.map(m => MOOD_LABELS[m] || m).join(', ');
     const goals = input.goals.map(g => GOAL_LABELS[g] || g).join(', ');
     const problems = input.problems.map(p => PROBLEM_LABELS[p] || p).join(', ');
 
-    return `You are a personal mental alignment coach creating a mental loop for audio repetition.
+    return `You are creating a mental loop for audio repetition-based training.
 
 CONTEXT:
 - Current mood: ${moods || 'Not specified'}
@@ -73,36 +78,50 @@ CONTEXT:
 - Challenges: ${problems || 'None specified'}
 ${input.details ? `- Additional context: "${input.details}"` : ''}
 
-REQUIREMENTS:
-- Write in first person ("I am...", "I choose...", "I practice...")
-- Present tense, positive framing only
-- Strong cadence suitable for repetition — vary sentence lengths (short punchy + longer flowing)
-- 3-5 sentences, 50-120 words total
-- Begin with identity reinforcement ("I am...")
-- End with an empowering action statement
-- Be SPECIFIC to the user's mood, goals, and challenges — avoid generic affirmations
-- The text should feel powerful when read aloud repeatedly
+CRITICAL CONSTRAINTS:
+- TOTAL LENGTH: 20-50 words only (7-18 seconds when spoken aloud)
+- FORMAT: 3-5 short lines, one idea per line
+- Each line should be a complete thought that works on its own
+- Write in first person, present tense
+- Positive framing only — never use "not", "don't", "stop"
+- Begin with an identity statement ("I am...")
+- End with a directive or action statement
+- Use clear rhythm — alternate between short (3-5 words) and medium (6-10 words) lines
+- Be SPECIFIC to the user's mood and goals
 
-OUTPUT FORMAT (respond in valid JSON):
+STRUCTURE:
+Line 1: Identity statement (who I am)
+Line 2: Reinforcement (what I embody)
+Line 3: Directive (what I do)
+Optional Line 4-5: Additional reinforcement
+
+OUTPUT FORMAT (valid JSON):
 {
-  "name": "2-4 word descriptive title",
-  "text": "The loop text, 50-120 words",
+  "name": "2-3 word title",
+  "text": "Line 1.\\nLine 2.\\nLine 3.",
   "voiceId": "one of: david, rachel, calm-mentor, focused-coach",
-  "intervalSeconds": 180-600 (based on complexity)
+  "intervalSeconds": 180-300
 }
 
-EXAMPLE OF STRONG OUTPUT:
+STRONG EXAMPLES:
 {
-  "name": "Focused Clarity",
-  "text": "I am clear. I am focused. Every challenge I face sharpens my ability to think, decide, and act with precision. Distractions do not own me — I choose where my energy flows. When my mind wanders, I return. When doubt surfaces, I breathe and recommit. I am building something meaningful, and every focused minute compounds into mastery.",
+  "name": "Morning Focus",
+  "text": "I am focused and steady.\\nMy mind is clear, my energy is calm.\\nI finish the first task before noon.\\nI move with purpose.",
   "voiceId": "focused-coach",
-  "intervalSeconds": 300
+  "intervalSeconds": 240
 }
 
-EXAMPLE OF WEAK OUTPUT (avoid this):
+{
+  "name": "Calm Confidence",
+  "text": "I am calm and capable.\\nEvery challenge sharpens me.\\nI breathe, I decide, I act.",
+  "voiceId": "calm-mentor",
+  "intervalSeconds": 180
+}
+
+WEAK EXAMPLE (avoid — too vague and too long):
 {
   "name": "Positive Vibes",
-  "text": "I am great. I am amazing. Everything is wonderful. I believe in myself. Today will be a good day.",
+  "text": "I am great. I am amazing. Everything is wonderful. I believe in myself and I know that today will be a wonderful day full of possibilities and joy and I am grateful for everything.",
   "voiceId": "calm-mentor",
   "intervalSeconds": 180
 }`;

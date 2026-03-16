@@ -13,6 +13,7 @@ export class AudioEngine {
     private isPlaying: boolean = false;
     private startTime: number = 0;
     private pauseTime: number = 0;
+    private targetVolume: number = 1;
 
     // Callbacks
     public onPlayStateChange?: (isPlaying: boolean) => void;
@@ -111,6 +112,11 @@ export class AudioEngine {
         // Calculate offset if resuming from pause
         const offset = this.pauseTime % this.audioBuffer.duration;
 
+        // Fade in over 200ms for smooth start
+        const now = this.audioContext.currentTime;
+        this.gainNode.gain.setValueAtTime(0, now);
+        this.gainNode.gain.linearRampToValueAtTime(this.targetVolume, now + 0.2);
+
         this.sourceNode.start(0, offset);
         this.startTime = this.audioContext.currentTime - offset;
         this.isPlaying = true;
@@ -180,8 +186,10 @@ export class AudioEngine {
      * Set volume (0.0 to 1.0)
      */
     setVolume(volume: number): void {
-        if (this.gainNode) {
-            this.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+        const clamped = Math.max(0, Math.min(1, volume));
+        this.targetVolume = clamped;
+        if (this.gainNode && this.audioContext) {
+            this.gainNode.gain.setValueAtTime(clamped, this.audioContext.currentTime);
         }
     }
 
@@ -213,12 +221,26 @@ export class AudioEngine {
     private stopSource(): void {
         if (this.sourceNode) {
             try {
-                this.sourceNode.stop();
-                this.sourceNode.disconnect();
+                // Fade out over 150ms before disconnecting for smooth stop
+                if (this.gainNode && this.audioContext) {
+                    const now = this.audioContext.currentTime;
+                    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+                    this.gainNode.gain.linearRampToValueAtTime(0, now + 0.15);
+                }
+                // Schedule stop slightly after fade completes
+                setTimeout(() => {
+                    try {
+                        this.sourceNode?.stop();
+                        this.sourceNode?.disconnect();
+                    } catch {
+                        // Source may already be stopped
+                    }
+                    this.sourceNode = null;
+                }, 160);
             } catch {
                 // Source may already be stopped
+                this.sourceNode = null;
             }
-            this.sourceNode = null;
         }
     }
 
