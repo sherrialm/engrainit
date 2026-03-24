@@ -5,7 +5,7 @@
  * Keeps API keys secure — never exposed to the client.
  *
  * Accepts:
- *   POST { action: 'loop' | 'memory' | 'briefing', prompt: string }
+ *   POST { action: 'loop' | 'memory' | 'briefing' | 'status', prompt?: string }
  *
  * Returns:
  *   { result: object | string, provider: 'gemini' | 'mock' }
@@ -17,7 +17,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // ── Environment ───────────────────────────────────────────────
 
 const API_KEY = process.env.GOOGLE_AI_API_KEY || '';
-const MODEL_NAME = 'gemini-2.0-flash-lite';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 function isGeminiAvailable(): boolean {
     return API_KEY.length > 10;
@@ -57,6 +57,43 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         const { action, prompt } = body;
 
+        // ── Status check endpoint ─────────────────────────
+        if (action === 'status') {
+            const keyPrefix = API_KEY ? `${API_KEY.slice(0, 8)}...` : '(empty)';
+            const available = isGeminiAvailable();
+
+            console.log(`[AI Route] Status check — key: ${keyPrefix}, available: ${available}, model: ${MODEL_NAME}`);
+
+            if (!available) {
+                return NextResponse.json({
+                    status: 'no_key',
+                    keyPrefix,
+                    model: MODEL_NAME,
+                    message: 'GOOGLE_AI_API_KEY is not set or too short',
+                });
+            }
+
+            // Try a minimal Gemini call to verify the key works
+            try {
+                const testResult = await callGemini('Say "hello" in one word.');
+                return NextResponse.json({
+                    status: 'active',
+                    keyPrefix,
+                    model: MODEL_NAME,
+                    provider: 'gemini',
+                    testResponse: testResult.trim().slice(0, 50),
+                });
+            } catch (err: any) {
+                return NextResponse.json({
+                    status: 'error',
+                    keyPrefix,
+                    model: MODEL_NAME,
+                    error: err.message,
+                });
+            }
+        }
+
+        // ── Normal generation ─────────────────────────────
         if (!action || !prompt) {
             return NextResponse.json(
                 { error: 'Missing action or prompt' },
@@ -66,17 +103,17 @@ export async function POST(req: NextRequest) {
 
         // Check if Gemini is configured
         if (!isGeminiAvailable()) {
-            console.log('[AI Route] Gemini not configured, returning mock signal');
+            console.log('[AI Route] Gemini not configured (GOOGLE_AI_API_KEY missing), returning mock signal');
             return NextResponse.json({ result: null, provider: 'mock' });
         }
 
-        console.log(`[AI Route] Calling Gemini for action: ${action}`);
+        console.log(`[AI Route] Calling Gemini (${MODEL_NAME}) for action: ${action}`);
         const startTime = Date.now();
 
         try {
             const rawText = await callGemini(prompt);
             const elapsed = Date.now() - startTime;
-            console.log(`[AI Route] Gemini responded in ${elapsed}ms (${rawText.length} chars)`);
+            console.log(`[AI Route] ✓ Gemini responded in ${elapsed}ms (${rawText.length} chars)`);
 
             if (action === 'briefing') {
                 // Briefing returns plain text, not JSON
@@ -93,8 +130,8 @@ export async function POST(req: NextRequest) {
                 provider: 'gemini',
             });
         } catch (aiErr: any) {
-            console.error(`[AI Route] Gemini call failed:`, aiErr.message);
-            console.error(`[AI Route] Falling back to mock provider`);
+            console.error(`[AI Route] ✗ Gemini call FAILED:`, aiErr.message);
+            console.error(`[AI Route] Key prefix: ${API_KEY.slice(0, 8)}..., Model: ${MODEL_NAME}`);
             return NextResponse.json({
                 result: null,
                 provider: 'mock',
