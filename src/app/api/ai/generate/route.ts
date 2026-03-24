@@ -73,24 +73,44 @@ export async function POST(req: NextRequest) {
                 });
             }
 
-            // Try a minimal Gemini call to verify the key works
-            try {
-                const testResult = await callGemini('Say "hello" in one word.');
-                return NextResponse.json({
-                    status: 'active',
-                    keyPrefix,
-                    model: MODEL_NAME,
-                    provider: 'gemini',
-                    testResponse: testResult.trim().slice(0, 50),
-                });
-            } catch (err: any) {
-                return NextResponse.json({
-                    status: 'error',
-                    keyPrefix,
-                    model: MODEL_NAME,
-                    error: err.message,
-                });
+            // Try multiple models to find one that works
+            const modelsToTry = [
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
+                'gemini-1.5-flash',
+                'gemini-1.5-flash-latest',
+                'gemini-1.5-pro',
+                'gemini-pro',
+            ];
+
+            const genAI = new GoogleGenerativeAI(API_KEY);
+            const results: Record<string, string> = {};
+
+            for (const modelName of modelsToTry) {
+                try {
+                    const model = genAI.getGenerativeModel({ model: modelName });
+                    const testResult = await model.generateContent('Say hello in one word.');
+                    const text = testResult.response.text().trim().slice(0, 30);
+                    results[modelName] = `✓ works: "${text}"`;
+                } catch (err: any) {
+                    const msg = err.message || '';
+                    if (msg.includes('429')) results[modelName] = '✗ quota exceeded';
+                    else if (msg.includes('404')) results[modelName] = '✗ not available';
+                    else if (msg.includes('403')) results[modelName] = '✗ permission denied';
+                    else results[modelName] = `✗ ${msg.slice(0, 60)}`;
+                }
             }
+
+            // Find first working model
+            const workingModel = Object.entries(results).find(([, v]) => v.startsWith('✓'));
+
+            return NextResponse.json({
+                status: workingModel ? 'active' : 'error',
+                keyPrefix,
+                configuredModel: MODEL_NAME,
+                workingModel: workingModel ? workingModel[0] : null,
+                modelResults: results,
+            });
         }
 
         // ── Normal generation ─────────────────────────────
