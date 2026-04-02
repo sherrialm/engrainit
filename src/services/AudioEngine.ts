@@ -221,27 +221,19 @@ export class AudioEngine {
     private stopSource(): void {
         if (this.sourceNode) {
             try {
-                // Fade out over 150ms before disconnecting for smooth stop
-                if (this.gainNode && this.audioContext) {
-                    const now = this.audioContext.currentTime;
-                    this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
-                    this.gainNode.gain.linearRampToValueAtTime(0, now + 0.15);
-                }
-                // Schedule stop slightly after fade completes
-                setTimeout(() => {
-                    try {
-                        this.sourceNode?.stop();
-                        this.sourceNode?.disconnect();
-                    } catch {
-                        // Source may already be stopped
-                    }
-                    this.sourceNode = null;
-                }, 160);
+                this.sourceNode.stop();
+                this.sourceNode.disconnect();
             } catch {
                 // Source may already be stopped
-                this.sourceNode = null;
             }
+            this.sourceNode = null;
         }
+        // Reset gain to target volume so next play starts at correct level
+        if (this.gainNode && this.audioContext) {
+            this.gainNode.gain.cancelScheduledValues(this.audioContext.currentTime);
+            this.gainNode.gain.setValueAtTime(this.targetVolume, this.audioContext.currentTime);
+        }
+        this.stopTimeUpdate();
     }
 
     private timeUpdateInterval: NodeJS.Timeout | null = null;
