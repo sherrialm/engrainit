@@ -345,3 +345,13 @@ h6 {
   transform: scale(1.1);
   box-shadow: 0 0 8px rgba(45, 90, 39, 0.3);
 }
+
+/* ── AI Status fade-out ────────────────────────────────────── */
+@keyframes fadeOut {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-fade-out {
+  animation: fadeOut 5s ease-out forwards;
+}

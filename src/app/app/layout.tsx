@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTierStore } from '@/stores/tierStore';
 import { TIER_DISPLAY } from '@/config/tiers';
 import { HomeIcon, VaultIcon, ProgressIcon } from '@/components/Icons';
+import AIStatusIndicator from '@/components/AIStatusIndicator';
 
 export default function AppLayout({
     children,
@@ -90,6 +91,7 @@ export default function AppLayout({
                                     {TIER_DISPLAY[tier].emoji} {TIER_DISPLAY[tier].name}
                                 </a>
                             )}
+                            <AIStatusIndicator />
                             <a href="/app" className="btn-ghost text-sm flex items-center gap-1.5">
                                 <HomeIcon className="w-4 h-4" />
                                 Home
