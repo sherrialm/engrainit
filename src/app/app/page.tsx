@@ -21,6 +21,24 @@ import {
     LoopIcon, SessionIcon, MemoryIcon, VaultIcon, ProgressIcon,
     BriefingIcon, PlayIcon, RefreshIcon, PinFilledIcon, CheckIcon,
 } from '@/components/Icons';
+
+// Inline PauseIcon and SpinnerIcon for playback states
+function PauseIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1" />
+            <rect x="14" y="4" width="4" height="16" rx="1" />
+        </svg>
+    );
+}
+
+function SpinnerIcon({ className }: { className?: string }) {
+    return (
+        <svg className={`${className} animate-spin`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+        </svg>
+    );
+}
 import { generateBriefing } from '@/services/AIService';
 import { getCachedBriefing, saveBriefing } from '@/services/BriefingService';
 import type { Loop, LoopTag } from '@/types';
@@ -127,7 +145,7 @@ export default function AppDashboard() {
     const { loops, fetchLoops, addLoop } = useVaultStore();
     const pinnedLoops = usePinnedLoops();
     const { tier } = useTierStore();
-    const { loadAndPlay } = useAudioStore();
+    const { loadAndPlay, isLoading, loadingLoopId, loadError, isPlaying, currentLoop, pause } = useAudioStore();
 
     // Briefing state
     const [briefingText, setBriefingText] = useState<string | null>(null);
@@ -343,10 +361,17 @@ export default function AppDashboard() {
                 </h2>
                 {quickLoops.length > 0 ? (
                     <div className="space-y-2">
-                        {quickLoops.map((loop) => (
+                        {quickLoops.map((loop) => {
+                            const isThisLoading = isLoading && loadingLoopId === loop.id;
+                            const isThisPlaying = isPlaying && currentLoop?.id === loop.id;
+                            const isPlayable = !!(loop.audioUrl || loop.text);
+
+                            return (
                             <div
                                 key={loop.id}
-                                className="bg-parchment-100 rounded-lg border border-forest-100 p-3 flex items-center justify-between"
+                                className={`bg-parchment-100 rounded-lg border p-3 flex items-center justify-between transition-colors ${
+                                    isThisPlaying ? 'border-forest-500 bg-forest-50' : 'border-forest-100'
+                                }`}
                             >
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-sm font-medium text-forest-700 truncate">
@@ -354,6 +379,9 @@ export default function AppDashboard() {
                                     </h4>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <span className="text-xs text-forest-400">{loop.category}</span>
+                                        {isThisPlaying && (
+                                            <span className="text-[10px] bg-forest-700 text-parchment-100 px-1.5 py-0.5 rounded-full">Playing</span>
+                                        )}
                                         {loop.tags && loop.tags.length > 0 && (
                                             <div className="flex gap-1">
                                                 {loop.tags.map(tag => (
@@ -365,15 +393,30 @@ export default function AppDashboard() {
                                         )}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => loadAndPlay(loop)}
-                                    className="p-2 rounded-lg bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors flex-shrink-0"
-                                    title="Play loop"
-                                >
-                                    <PlayIcon className="w-4 h-4" />
-                                </button>
+                                {isPlayable ? (
+                                    <button
+                                        onClick={() => isThisPlaying ? pause() : loadAndPlay(loop)}
+                                        disabled={isThisLoading}
+                                        className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                                            isThisPlaying
+                                                ? 'bg-forest-600 text-parchment-100'
+                                                : 'bg-forest-700 text-parchment-100 hover:bg-forest-600'
+                                        } disabled:opacity-50`}
+                                        title={isThisPlaying ? 'Pause' : isThisLoading ? 'Loading...' : 'Play loop'}
+                                    >
+                                        {isThisLoading ? (
+                                            <SpinnerIcon className="w-4 h-4" />
+                                        ) : isThisPlaying ? (
+                                            <PauseIcon className="w-4 h-4" />
+                                        ) : (
+                                            <PlayIcon className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                ) : (
+                                    <span className="text-[10px] text-forest-400 px-2">No audio</span>
+                                )}
                             </div>
-                        ))}
+                        )})}
                     </div>
                 ) : (
                     <div className="bg-parchment-100 rounded-lg border border-forest-100 p-4 text-center">
@@ -392,28 +435,50 @@ export default function AppDashboard() {
                         Suggested for You
                     </h2>
                     <div className="space-y-2">
-                        {suggestions.map(({ loop, reason }) => (
+                        {suggestions.map(({ loop, reason }) => {
+                            const isThisLoading = isLoading && loadingLoopId === loop.id;
+                            const isThisPlaying = isPlaying && currentLoop?.id === loop.id;
+                            const isPlayable = !!(loop.audioUrl || loop.text);
+
+                            return (
                             <div
                                 key={loop.id}
-                                className="bg-parchment-100/60 rounded-lg border border-dashed border-forest-200 p-3 flex items-center justify-between"
+                                className={`bg-parchment-100/60 rounded-lg border border-dashed p-3 flex items-center justify-between transition-colors ${
+                                    isThisPlaying ? 'border-forest-500 bg-forest-50' : 'border-forest-200'
+                                }`}
                             >
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-sm font-medium text-forest-700 truncate">
                                         {loop.title}
                                     </h4>
                                     <p className="text-xs text-amber-600 mt-0.5">
-                                        {reason}
+                                        {isThisPlaying ? 'Now playing' : reason}
                                     </p>
                                 </div>
-                                <button
-                                    onClick={() => loadAndPlay(loop)}
-                                    className="p-2 rounded-lg bg-parchment-300 text-forest-600 hover:bg-forest-700 hover:text-parchment-100 transition-colors flex-shrink-0"
-                                    title="Play loop"
-                                >
-                                    <PlayIcon className="w-4 h-4" />
-                                </button>
+                                {isPlayable ? (
+                                    <button
+                                        onClick={() => isThisPlaying ? pause() : loadAndPlay(loop)}
+                                        disabled={isThisLoading}
+                                        className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                                            isThisPlaying
+                                                ? 'bg-forest-700 text-parchment-100'
+                                                : 'bg-parchment-300 text-forest-600 hover:bg-forest-700 hover:text-parchment-100'
+                                        } disabled:opacity-50`}
+                                        title={isThisPlaying ? 'Pause' : isThisLoading ? 'Loading...' : 'Play loop'}
+                                    >
+                                        {isThisLoading ? (
+                                            <SpinnerIcon className="w-4 h-4" />
+                                        ) : isThisPlaying ? (
+                                            <PauseIcon className="w-4 h-4" />
+                                        ) : (
+                                            <PlayIcon className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                ) : (
+                                    <span className="text-[10px] text-forest-400 px-2">No audio</span>
+                                )}
                             </div>
-                        ))}
+                        )})}
                     </div>
                 </section>
             )}

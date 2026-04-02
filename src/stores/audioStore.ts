@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Loop, PlaybackState } from '@/types';
 import { AudioEngine, getAudioEngine } from '@/services/AudioEngine';
 import { BackgroundAudioEngine } from '@/services/BackgroundAudioEngine';
+import { generateSpeech } from '@/services/TTSService';
 import { SpacedRepetitionController } from '@/services/SpacedRepetitionController';
 import { AMBIENCE_TRACKS } from '@/config/ambience';
 
@@ -10,6 +11,11 @@ interface AudioState extends PlaybackState {
     audioEngine: AudioEngine | null;
     spacedController: SpacedRepetitionController | null;
     backgroundEngine: BackgroundAudioEngine | null;
+
+    // Playback loading state
+    isLoading: boolean;
+    loadingLoopId: string | null;
+    loadError: string | null;
 
     // Background ambience state
     backgroundEnabled: boolean;
@@ -71,6 +77,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     // Fade protection
     fadeInProgress: false,
 
+    // Playback loading
+    isLoading: false,
+    loadingLoopId: null,
+    loadError: null,
+
     initializeAudio: () => {
         if (typeof window === 'undefined') return;
 
@@ -114,15 +125,48 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
         // STOP any active session/timers first to avoid race conditions
         get().stop();
+        set({ isLoading: true, loadingLoopId: loop.id, loadError: null });
 
         const engine = get().audioEngine!;
 
         try {
-            await engine.loadAudio(loop.audioUrl);
+            let audioSource = loop.audioUrl;
+
+            // If no audio URL but has text, synthesize TTS on-the-fly
+            if ((!audioSource || audioSource.length === 0) && loop.text) {
+                console.log('[AudioStore] No audioUrl, synthesizing TTS for:', loop.title);
+                try {
+                    const ttsResult = await generateSpeech({
+                        text: loop.text,
+                        voiceId: loop.voiceId || 'sage',
+                    });
+                    if (ttsResult.audioContent) {
+                        audioSource = ttsResult.audioContent;
+                        console.log('[AudioStore] TTS synthesis complete');
+                    } else {
+                        throw new Error('TTS returned no audio');
+                    }
+                } catch (ttsError: any) {
+                    console.error('[AudioStore] TTS synthesis failed:', ttsError.message);
+                    set({ isLoading: false, loadingLoopId: null, loadError: ttsError.message || 'Audio synthesis failed' });
+                    return;
+                }
+            }
+
+            if (!audioSource || audioSource.length === 0) {
+                console.warn('[AudioStore] Loop has no audio and no text:', loop.title);
+                set({ isLoading: false, loadingLoopId: null, loadError: 'This loop has no audio or text content' });
+                return;
+            }
+
+            await engine.loadAudio(audioSource);
             set({
                 currentLoop: loop,
                 duration: engine.getDuration(),
-                currentTime: 0
+                currentTime: 0,
+                isLoading: false,
+                loadingLoopId: null,
+                loadError: null,
             });
 
             // Sync interval
@@ -142,9 +186,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 console.log('[AudioStore] Auto-starting spaced repetition with interval:', loop.intervalSeconds);
                 get().spacedController!.start();
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to load audio:', error);
-            throw error;
+            set({ isLoading: false, loadingLoopId: null, loadError: error.message || 'Playback failed' });
         }
     },
 
