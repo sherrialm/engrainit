@@ -28,22 +28,28 @@ function isGeminiAvailable(): boolean {
 const MODELS_TO_TRY = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro'];
 
 async function callGemini(prompt: string): Promise<string> {
-    const genAI = new GoogleGenerativeAI(API_KEY);
     let lastError: any;
 
-    for (const modelName of MODELS_TO_TRY) {
-        try {
-            console.log(`[AI Route] Trying model: ${modelName}`);
-            const model = genAI.getGenerativeModel({ model: modelName });
-            const result = await model.generateContent(prompt);
-            const text = result.response.text();
-            console.log(`[AI Route] ✓ ${modelName} worked (${text.length} chars)`);
-            return text;
-        } catch (err: any) {
-            lastError = err;
-            const code = err.message?.includes('404') ? '404' : err.message?.includes('429') ? '429' : '?';
-            console.log(`[AI Route] ✗ ${modelName}: ${code}`);
-            if (!err.message?.includes('404')) throw err; // Only retry on 404
+    // Try both API versions — new projects use v1, older ones use v1beta
+    for (const apiVersion of ['v1beta', 'v1'] as const) {
+        const genAI = new GoogleGenerativeAI(API_KEY);
+
+        for (const modelName of MODELS_TO_TRY) {
+            try {
+                console.log(`[AI Route] Trying ${apiVersion}/${modelName}`);
+                const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion });
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                console.log(`[AI Route] ✓ ${apiVersion}/${modelName} worked (${text.length} chars)`);
+                return text;
+            } catch (err: any) {
+                lastError = err;
+                const msg = err.message || '';
+                const code = msg.includes('404') ? '404' : msg.includes('429') ? '429' : msg.includes('403') ? '403' : '?';
+                console.log(`[AI Route] ✗ ${apiVersion}/${modelName}: ${code}`);
+                // Only keep trying on 404 (model not found); other errors are fatal
+                if (!msg.includes('404')) throw err;
+            }
         }
     }
 
