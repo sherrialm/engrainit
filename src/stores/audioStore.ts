@@ -6,6 +6,10 @@ import { generateSpeech } from '@/services/TTSService';
 import { SpacedRepetitionController } from '@/services/SpacedRepetitionController';
 import { AMBIENCE_TRACKS } from '@/config/ambience';
 
+// Module-level cancellation token: incremented on each loadAndPlay call
+// so stale async operations (TTS synthesis, audio loading) bail out
+let _playRequestId = 0;
+
 interface AudioState extends PlaybackState {
     // Services (initialized lazily)
     audioEngine: AudioEngine | null;
@@ -123,7 +127,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
         console.log('[AudioStore] loadAndPlay called for:', loop.title);
 
-        // STOP any active session/timers first to avoid race conditions
+        // Increment request ID — any in-flight async operation with a stale ID will bail out
+        _playRequestId++;
+        const thisRequestId = _playRequestId;
+
+        // STOP any active session/timers first
         get().stop();
         set({ isLoading: true, loadingLoopId: loop.id, loadError: null });
 
@@ -140,6 +148,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                         text: loop.text,
                         voiceId: loop.voiceId || 'sage',
                     });
+
+                    // BAIL if a newer request started while we were synthesizing
+                    if (thisRequestId !== _playRequestId) {
+                        console.log('[AudioStore] Stale TTS request, bailing:', loop.title);
+                        return;
+                    }
+
                     if (ttsResult.audioContent) {
                         audioSource = ttsResult.audioContent;
                         console.log('[AudioStore] TTS synthesis complete');
@@ -147,6 +162,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                         throw new Error('TTS returned no audio');
                     }
                 } catch (ttsError: any) {
+                    if (thisRequestId !== _playRequestId) return;
                     console.error('[AudioStore] TTS synthesis failed:', ttsError.message);
                     set({ isLoading: false, loadingLoopId: null, loadError: ttsError.message || 'Audio synthesis failed' });
                     return;
@@ -154,12 +170,23 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             }
 
             if (!audioSource || audioSource.length === 0) {
+                if (thisRequestId !== _playRequestId) return;
                 console.warn('[AudioStore] Loop has no audio and no text:', loop.title);
                 set({ isLoading: false, loadingLoopId: null, loadError: 'This loop has no audio or text content' });
                 return;
             }
 
             await engine.loadAudio(audioSource);
+
+            // BAIL if a newer request started while we were loading audio
+            if (thisRequestId !== _playRequestId) {
+                console.log('[AudioStore] Stale load request, bailing:', loop.title);
+                return;
+            }
+
+            // Stop anything that might have started playing in the meantime
+            engine.stop();
+
             set({
                 currentLoop: loop,
                 duration: engine.getDuration(),
@@ -187,6 +214,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 get().spacedController!.start();
             }
         } catch (error: any) {
+            if (thisRequestId !== _playRequestId) return;
             console.error('Failed to load audio:', error);
             set({ isLoading: false, loadingLoopId: null, loadError: error.message || 'Playback failed' });
         }
