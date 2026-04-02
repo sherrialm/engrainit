@@ -25,13 +25,29 @@ function isGeminiAvailable(): boolean {
 
 // ── Gemini caller ─────────────────────────────────────────────
 
+const MODELS_TO_TRY = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro'];
+
 async function callGemini(prompt: string): Promise<string> {
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    let lastError: any;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    return response.text();
+    for (const modelName of MODELS_TO_TRY) {
+        try {
+            console.log(`[AI Route] Trying model: ${modelName}`);
+            const model = genAI.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            console.log(`[AI Route] ✓ ${modelName} worked (${text.length} chars)`);
+            return text;
+        } catch (err: any) {
+            lastError = err;
+            const code = err.message?.includes('404') ? '404' : err.message?.includes('429') ? '429' : '?';
+            console.log(`[AI Route] ✗ ${modelName}: ${code}`);
+            if (!err.message?.includes('404')) throw err; // Only retry on 404
+        }
+    }
+
+    throw lastError;
 }
 
 // ── JSON extraction ───────────────────────────────────────────
