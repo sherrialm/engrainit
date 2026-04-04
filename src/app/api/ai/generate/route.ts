@@ -25,7 +25,7 @@ function isGeminiAvailable(): boolean {
 
 // ── Gemini caller ─────────────────────────────────────────────
 
-const MODELS_TO_TRY = ['gemini-1.5-flash', 'gemini-pro'];
+const MODELS_TO_TRY = ['gemini-1.5-flash'];
 
 async function callGemini(prompt: string): Promise<string> {
     let lastError: any;
