@@ -25,35 +25,21 @@ function isGeminiAvailable(): boolean {
 
 // ── Gemini caller ─────────────────────────────────────────────
 
-const MODELS_TO_TRY = ['gemini-1.5-flash', 'gemini-pro'];
-
 async function callGemini(prompt: string): Promise<string> {
-    let lastError: any;
+  const genAI = new GoogleGenerativeAI(API_KEY);
 
-    // Try v1 first (stable), then v1beta fallback
-    for (const apiVersion of ['v1', 'v1beta'] as const) {
-        const genAI = new GoogleGenerativeAI(API_KEY);
+  try {
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash'
+    });
 
-        for (const modelName of MODELS_TO_TRY) {
-            try {
-                console.log(`[AI Route] Trying ${apiVersion}/${modelName}`);
-                const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion });
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                console.log(`[AI Route] ✓ ${apiVersion}/${modelName} worked (${text.length} chars)`);
-                return text;
-            } catch (err: any) {
-                lastError = err;
-                const msg = err.message || '';
-                const code = msg.includes('404') ? '404' : msg.includes('429') ? '429' : msg.includes('403') ? '403' : '?';
-                console.log(`[AI Route] ✗ ${apiVersion}/${modelName}: ${code}`);
-                // Only keep trying on 404 (model not found); other errors are fatal
-                if (!msg.includes('404')) throw err;
-            }
-        }
-    }
-
-    throw lastError;
+    const result = await model.generateContent(prompt);
+    console.log('[AI Route] Success with gemini-1.5-flash');
+    return result.response.text();
+  } catch (err: any) {
+    console.log('[AI Route] failed:', err.message?.slice(0, 80));
+    throw err;
+  }
 }
 
 // ── JSON extraction ───────────────────────────────────────────

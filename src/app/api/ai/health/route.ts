@@ -50,8 +50,8 @@ export async function GET() {
         const msg = err.message || 'Unknown error';
         const errorType = msg.includes('429') ? 'quota_exceeded'
             : msg.includes('403') ? 'forbidden'
-            : msg.includes('404') ? 'model_not_found'
-            : 'unknown';
+                : msg.includes('404') ? 'model_not_found'
+                    : 'unknown';
 
         console.error('[AI Health] Gemini error:', errorType, msg.slice(0, 100));
 
@@ -70,23 +70,18 @@ export async function GET() {
 async function testGemini(): Promise<string> {
     const genAI = new GoogleGenerativeAI(API_KEY);
 
-    // Try v1 first (stable), then v1beta fallback
-    for (const apiVersion of ['v1', 'v1beta'] as const) {
-        try {
-            const model = genAI.getGenerativeModel(
-                { model: 'gemini-1.5-flash' },
-                { apiVersion }
-            );
-            const result = await model.generateContent('Reply with OK');
-            console.log(`[AI Health] Success with ${apiVersion}/gemini-1.5-flash`);
-            return result.response.text();
-        } catch (err: any) {
-            console.log(`[AI Health] ${apiVersion} failed:`, err.message?.slice(0, 80));
-            if (!err.message?.includes('404')) throw err;
-            // continue to next version on 404
-        }
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash'
+        });
+
+        const result = await model.generateContent('Reply with OK');
+        console.log('[AI Health] Success with gemini-1.5-flash');
+        return result.response.text();
+    } catch (err: any) {
+        console.log('[AI Health] failed:', err.message?.slice(0, 80));
+        throw err;
     }
-    throw new Error('All API versions returned 404');
 }
 
 function timeout(ms: number): Promise<'TIMEOUT'> {
