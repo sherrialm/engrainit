@@ -31,7 +31,7 @@ async function callGemini(prompt: string): Promise<string> {
     let lastError: any;
 
     // Try v1 first (stable), then v1beta fallback
-    for (const apiVersion of ['v1', 'v1beta'] as const) {
+    for (const apiVersion of ['v1beta'] as const) {
         const genAI = new GoogleGenerativeAI(API_KEY);
 
         for (const modelName of MODELS_TO_TRY) {
