@@ -68,25 +68,20 @@ export async function GET() {
 }
 
 async function testGemini(): Promise<string> {
-    const genAI = new GoogleGenerativeAI(API_KEY);
+  const genAI = new GoogleGenerativeAI(API_KEY);
 
-    // Try v1 first (stable), then v1beta fallback
-    for (const apiVersion of ['v1beta'] as const) {
-        try {
-            const model = genAI.getGenerativeModel(
-                { model: 'models/gemini-1.5-flash-latest' },
-                { apiVersion }
-            );
-            const result = await model.generateContent('Reply with OK');
-            console.log(`[AI Health] Success with ${apiVersion}/gemini-1.5-flash`);
-            return result.response.text();
-        } catch (err: any) {
-            console.log(`[AI Health] ${apiVersion} failed:`, err.message?.slice(0, 80));
-            if (!err.message?.includes('404')) throw err;
-            // continue to next version on 404
-        }
-    }
-    throw new Error('All API versions returned 404');
+  try {
+    const model = genAI.getGenerativeModel({
+      model: 'models/gemini-1.5-flash-latest'
+    });
+
+    const result = await model.generateContent('Reply with OK');
+    console.log('[AI Health] Success with gemini-1.5-flash-latest');
+    return result.response.text();
+  } catch (err: any) {
+    console.log('[AI Health] failed:', err.message?.slice(0, 80));
+    throw err;
+  }
 }
 
 function timeout(ms: number): Promise<'TIMEOUT'> {
