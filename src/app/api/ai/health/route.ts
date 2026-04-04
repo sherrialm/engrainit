@@ -71,7 +71,7 @@ async function testGemini(): Promise<string> {
     const genAI = new GoogleGenerativeAI(API_KEY);
 
     // Try v1 first (stable), then v1beta fallback
-    for (const apiVersion of ['v1', 'v1beta'] as const) {
+    for (const apiVersion of ['v1beta'] as const) {
         try {
             const model = genAI.getGenerativeModel(
                 { model: 'models/gemini-1.5-flash' },
