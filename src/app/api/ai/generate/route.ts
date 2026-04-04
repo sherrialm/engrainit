@@ -37,7 +37,7 @@ async function callGemini(prompt: string): Promise<string> {
         for (const modelName of MODELS_TO_TRY) {
             try {
                 console.log(`[AI Route] Trying ${apiVersion}/${modelName}`);
-                const model = genAI.getGenerativeModel({ model: modelName }, { apiVersion });
+                const model = genAI.getGenerativeModel({ model: `models/${modelName}` }, { apiVersion });
                 const result = await model.generateContent(prompt);
                 const text = result.response.text();
                 console.log(`[AI Route] ✓ ${apiVersion}/${modelName} worked (${text.length} chars)`);
