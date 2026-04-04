@@ -74,7 +74,7 @@ async function testGemini(): Promise<string> {
     for (const apiVersion of ['v1', 'v1beta'] as const) {
         try {
             const model = genAI.getGenerativeModel(
-                { model: 'gemini-1.5-flash' },
+                { model: 'models/gemini-1.5-flash' },
                 { apiVersion }
             );
             const result = await model.generateContent('Reply with OK');
