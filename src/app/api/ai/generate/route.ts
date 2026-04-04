@@ -17,7 +17,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // ── Environment ───────────────────────────────────────────────
 
 const API_KEY = process.env.GOOGLE_AI_API_KEY || '';
-const MODEL_NAME = 'gemini-1.5-flash';
+const MODEL_NAME = 'gemini-1.5-flash-latest';
 
 function isGeminiAvailable(): boolean {
     return API_KEY.length > 10;
@@ -25,7 +25,7 @@ function isGeminiAvailable(): boolean {
 
 // ── Gemini caller ─────────────────────────────────────────────
 
-const MODELS_TO_TRY = ['gemini-1.5-flash'];
+const MODELS_TO_TRY = ['gemini-1.5-flash-latest'];
 
 async function callGemini(prompt: string): Promise<string> {
     let lastError: any;
