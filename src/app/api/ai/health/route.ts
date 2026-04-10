@@ -68,8 +68,9 @@ export async function GET() {
 }
 
 async function testGemini(): Promise<string> {
-    const genAI = new GoogleGenerativeAI(API_KEY);
+  const genAI = new GoogleGenerativeAI(API_KEY);
 
+<<<<<<< HEAD
     try {
         const model = genAI.getGenerativeModel({
             model: 'gemini-1.5-flash'
@@ -82,6 +83,20 @@ async function testGemini(): Promise<string> {
         console.log('[AI Health] failed:', err.message?.slice(0, 80));
         throw err;
     }
+=======
+  try {
+    const model = genAI.getGenerativeModel({
+      model: 'models/gemini-1.5-flash-latest'
+    });
+
+    const result = await model.generateContent('Reply with OK');
+    console.log('[AI Health] Success with gemini-1.5-flash-latest');
+    return result.response.text();
+  } catch (err: any) {
+    console.log('[AI Health] failed:', err.message?.slice(0, 80));
+    throw err;
+  }
+>>>>>>> 4dfb91ffde38f0e5c3bb94b7adbdf95d8babb5b5
 }
 
 function timeout(ms: number): Promise<'TIMEOUT'> {
