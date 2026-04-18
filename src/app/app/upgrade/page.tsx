@@ -256,11 +256,11 @@ export default function UpgradePage() {
                         <div className="space-y-2">
                             <button
                                 id="btn-pro-monthly"
-                                onClick={() => handleCheckout('monthly')}
+                                onClick={() => handleCheckout('pro-monthly')}
                                 disabled={loading !== null}
                                 className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'monthly' ? (
+                                {loading === 'pro-monthly' ? (
                                     <>
                                         <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
                                         Redirecting…
@@ -270,11 +270,11 @@ export default function UpgradePage() {
                             <button
                                 id="btn-pro-yearly"
                                 type="button"
-                                onClick={() => handleCheckout('yearly')}
+                                onClick={() => handleCheckout('pro-yearly')}
                                 disabled={loading !== null}
                                 className="w-full py-1 text-xs text-forest-500 hover:text-forest-700 underline transition-colors disabled:opacity-60"
                             >
-                                {loading === 'yearly' ? 'Redirecting…' : 'Prefer yearly? Save with annual.'}
+                                {loading === 'pro-yearly' ? 'Redirecting…' : 'Prefer yearly? Save with annual.'}
                             </button>
                         </div>
                     )}

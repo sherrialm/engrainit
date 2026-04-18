@@ -3,7 +3,7 @@ import { getStripe } from '@/lib/stripe';
 import { getAdminAuth } from '@/lib/firebaseAdmin';
 import { logger } from '@/lib/logger';
 
-type BillingPlan = 'monthly' | 'yearly' | 'core-monthly' | 'core-yearly';
+type BillingPlan = 'monthly' | 'yearly' | 'pro-monthly' | 'pro-yearly' | 'core-monthly' | 'core-yearly';
 
 /**
  * Sanitize Stripe/internal errors so raw details never reach the client.
@@ -35,7 +35,7 @@ function safeCheckoutError(error: unknown): { message: string; status: number } 
  * Creates a Stripe Checkout Session for Core or Pro subscription.
  * Requires Firebase ID token in Authorization header.
  *
- * Body: { plan: 'monthly' | 'yearly' | 'core-monthly' | 'core-yearly' }
+ * Body: { plan: 'pro-monthly' | 'pro-yearly' | 'core-monthly' | 'core-yearly' }
  */
 export async function POST(request: NextRequest) {
     try {
@@ -53,29 +53,48 @@ export async function POST(request: NextRequest) {
         const uid = decodedToken.uid;
         const email = decodedToken.email;
 
-        // Parse plan from body (default to monthly)
-        let plan: BillingPlan = 'monthly';
+        // Parse plan from body — no silent default; require explicit valid plan
+        const VALID_PLANS: BillingPlan[] = [
+            'monthly', 'yearly',
+            'pro-monthly', 'pro-yearly',
+            'core-monthly', 'core-yearly',
+        ];
+        let plan: BillingPlan;
         try {
             const body = await request.json();
-            if (['monthly', 'yearly', 'core-monthly', 'core-yearly'].includes(body.plan)) {
-                plan = body.plan;
+            if (VALID_PLANS.includes(body.plan)) {
+                plan = body.plan as BillingPlan;
+            } else {
+                logger.error('Stripe Checkout', `Invalid or missing plan: ${body.plan}`);
+                return NextResponse.json(
+                    { error: 'Invalid plan specified.' },
+                    { status: 400 }
+                );
             }
         } catch {
-            // No body or invalid JSON — use default
+            logger.error('Stripe Checkout', 'Missing or unparseable request body');
+            return NextResponse.json(
+                { error: 'Invalid plan specified.' },
+                { status: 400 }
+            );
         }
 
         // Resolve price ID and target tier based on plan
         const priceMap: Record<BillingPlan, string | undefined> = {
-            'monthly': process.env.STRIPE_PRICE_PRO_MONTHLY,
-            'yearly': process.env.STRIPE_PRICE_PRO_YEARLY,
+            'monthly':     process.env.STRIPE_PRICE_PRO_MONTHLY,   // legacy alias
+            'yearly':      process.env.STRIPE_PRICE_PRO_YEARLY,    // legacy alias
+            'pro-monthly': process.env.STRIPE_PRICE_PRO_MONTHLY,
+            'pro-yearly':  process.env.STRIPE_PRICE_PRO_YEARLY,
             'core-monthly': process.env.STRIPE_PRICE_CORE_MONTHLY,
-            'core-yearly': process.env.STRIPE_PRICE_CORE_YEARLY,
+            'core-yearly':  process.env.STRIPE_PRICE_CORE_YEARLY,
         };
         const tierMap: Record<BillingPlan, string> = {
-            'monthly': 'pro',
-            'yearly': 'pro',
+            'monthly':     'pro',
+            'yearly':      'pro',
+            'pro-monthly': 'pro',
+            'pro-yearly':  'pro',
             'core-monthly': 'core',
-            'core-yearly': 'core',
+            'core-yearly':  'core',
         };
 
         const priceId = priceMap[plan];

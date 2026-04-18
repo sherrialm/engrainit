@@ -9,7 +9,7 @@
 
 import { auth } from '@/lib/firebase';
 
-export type BillingPlan = 'monthly' | 'yearly' | 'core-monthly' | 'core-yearly';
+export type BillingPlan = 'monthly' | 'yearly' | 'pro-monthly' | 'pro-yearly' | 'core-monthly' | 'core-yearly';
 
 const BILLING_TIMEOUT_MS = 15_000;
 
