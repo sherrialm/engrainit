@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
                 // Get subscription details
                 const subscriptionId = session.subscription as string;
                 const customerId = session.customer as string;
+                // Read the target tier set at checkout time; default to 'pro' for safety
+                const targetTier = (session.metadata?.targetTier === 'core') ? 'core' : 'pro';
 
                 let currentPeriodEnd: number | undefined;
                 if (subscriptionId) {
@@ -60,10 +62,10 @@ export async function POST(request: NextRequest) {
                     currentPeriodEnd = (sub as any).current_period_end;
                 }
 
-                // Mark user as Pro in Firestore
+                // Upgrade user tier in Firestore
                 await db.doc(`users/${uid}/billing/status`).set(
                     {
-                        tier: 'pro',
+                        tier: targetTier,
                         stripeCustomerId: customerId,
                         stripeSubscriptionId: subscriptionId,
                         currentPeriodEnd: currentPeriodEnd || null,
@@ -74,11 +76,11 @@ export async function POST(request: NextRequest) {
 
                 // Also update profile tier for backward compatibility
                 await db.doc(`users/${uid}/profile/data`).set(
-                    { tier: 'pro' },
+                    { tier: targetTier },
                     { merge: true }
                 );
 
-                console.log(`[Stripe Webhook] User ${uid} upgraded to Pro`);
+                console.log(`[Stripe Webhook] User ${uid} upgraded to ${targetTier}`);
                 break;
             }
 
@@ -153,10 +155,12 @@ export async function POST(request: NextRequest) {
                     const uid = sub.metadata?.firebaseUid;
 
                     if (uid) {
-                        // Clear payment failure flags
+                        // Clear payment failure flags — preserve existing tier
+                        const existingDoc = await db.doc(`users/${uid}/billing/status`).get();
+                        const existingTier = (existingDoc.data() as any)?.tier || 'pro';
                         await db.doc(`users/${uid}/billing/status`).set(
                             {
-                                tier: 'pro',
+                                tier: existingTier,
                                 paymentFailed: false,
                                 gracePeriod: false,
                                 gracePeriodEndsAt: null,
