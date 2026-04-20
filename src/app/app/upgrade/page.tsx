@@ -177,6 +177,17 @@ export default function UpgradePage() {
                         ))}
                     </ul>
 
+                    {isCoreCurrentCard && (
+                        <div className="text-center text-xs font-semibold px-3 py-1.5 rounded-full mb-3 bg-amber-400/20 text-amber-200 tracking-wide">
+                            Current plan:&nbsp;
+                            {isCoreMonthCurrent
+                                ? 'Core Monthly'
+                                : isCoreYearCurrent
+                                ? 'Core Yearly'
+                                : 'Core (interval not yet synced)'}
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                             <button
                                 id="btn-core-monthly"
@@ -255,6 +266,17 @@ export default function UpgradePage() {
                             </li>
                         ))}
                     </ul>
+
+                    {isProCurrentCard && (
+                        <div className="text-center text-xs font-semibold px-3 py-1.5 rounded-full mb-3 bg-amber-400/20 text-amber-200 tracking-wide">
+                            Current plan:&nbsp;
+                            {isProMonthCurrent
+                                ? 'Pro Monthly'
+                                : isProYearCurrent
+                                ? 'Pro Yearly'
+                                : 'Pro (interval not yet synced)'}
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                             <button
