@@ -40,7 +40,11 @@ export const useTierStore = create<TierState>((set, get) => ({
 
         if (!db) {
             // No Firestore available, use owner check
-            set({ tier: isOwner ? 'pro' : 'free', isLoaded: true });
+            set({ 
+                tier: isOwner ? 'pro' : 'free', 
+                ...(isOwner && { billingInterval: 'yearly' }),
+                isLoaded: true 
+            });
             return;
         }
 
@@ -69,8 +73,11 @@ export const useTierStore = create<TierState>((set, get) => ({
 
                 // If owner, ensure they're Pro
                 let tier: UserTier = isOwner ? 'pro' : (data.tier || 'free') as UserTier;
-                if (isOwner && data.tier !== 'pro') {
-                    await updateDoc(profileRef, { tier: 'pro' });
+                if (isOwner) {
+                    if (data.tier !== 'pro') {
+                        await updateDoc(profileRef, { tier: 'pro' });
+                    }
+                    set({ billingInterval: 'yearly' });
                 }
 
                 // Check billing doc for Stripe-managed tier (takes priority)
@@ -120,13 +127,18 @@ export const useTierStore = create<TierState>((set, get) => ({
                     generationsUsed: 0,
                     generationsResetDate: nextReset,
                     isLoaded: true,
+                    ...(isOwner && { billingInterval: 'yearly' }),
                 });
             }
         } catch (error) {
             console.error('[Tier] Failed to load user profile:', error);
             // Fallback: check owner list even if Firestore fails
             console.log('[Tier] Falling back to owner check:', isOwner);
-            set({ tier: isOwner ? 'pro' : 'free', isLoaded: true });
+            set({ 
+                tier: isOwner ? 'pro' : 'free', 
+                ...(isOwner && { billingInterval: 'yearly' }),
+                isLoaded: true 
+            });
         }
     },
 
