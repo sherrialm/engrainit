@@ -82,7 +82,7 @@ async function runBackfill(request: NextRequest): Promise<NextResponse> {
 
     // ── Query all billing/* docs (no .where — avoids composite index requirement) ─
     // Filter to paid tiers in memory. This is safe for a one-time admin utility.
-    let billingSnap: FirebaseFirestore.QuerySnapshot;
+    let billingSnap: any;
     try {
         billingSnap = await db.collectionGroup('billing').get();
     } catch (err) {
