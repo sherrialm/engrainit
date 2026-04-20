@@ -57,15 +57,22 @@ export async function POST(request: NextRequest) {
                 const targetTier = (session.metadata?.targetTier === 'core') ? 'core' : 'pro';
 
                 let currentPeriodEnd: number | undefined;
+                let billingInterval: 'monthly' | 'yearly' = 'monthly';
                 if (subscriptionId) {
-                    const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+                    const sub = await getStripe().subscriptions.retrieve(subscriptionId, {
+                        expand: ['items.data.plan'],
+                    });
                     currentPeriodEnd = (sub as any).current_period_end;
+                    // Derive interval from the first subscription item's plan
+                    const stripeInterval = sub.items?.data?.[0]?.plan?.interval;
+                    billingInterval = stripeInterval === 'year' ? 'yearly' : 'monthly';
                 }
 
                 // Upgrade user tier in Firestore
                 await db.doc(`users/${uid}/billing/status`).set(
                     {
                         tier: targetTier,
+                        billingInterval,
                         stripeCustomerId: customerId,
                         stripeSubscriptionId: subscriptionId,
                         currentPeriodEnd: currentPeriodEnd || null,
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
                     { merge: true }
                 );
 
-                console.log(`[Stripe Webhook] User ${uid} upgraded to ${targetTier}`);
+                console.log(`[Stripe Webhook] User ${uid} upgraded to ${targetTier} (${billingInterval})`);
                 break;
             }
 
@@ -151,16 +158,22 @@ export async function POST(request: NextRequest) {
                 const subscriptionId = (invoice as any).subscription as string;
 
                 if (subscriptionId) {
-                    const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+                    const sub = await getStripe().subscriptions.retrieve(subscriptionId, {
+                        expand: ['items.data.plan'],
+                    });
                     const uid = sub.metadata?.firebaseUid;
 
                     if (uid) {
-                        // Clear payment failure flags — preserve existing tier
+                        // Clear payment failure flags — preserve existing tier, refresh interval
                         const existingDoc = await db.doc(`users/${uid}/billing/status`).get();
                         const existingTier = (existingDoc.data() as any)?.tier || 'pro';
+                        const stripeInterval = sub.items?.data?.[0]?.plan?.interval;
+                        const billingInterval: 'monthly' | 'yearly' =
+                            stripeInterval === 'year' ? 'yearly' : 'monthly';
                         await db.doc(`users/${uid}/billing/status`).set(
                             {
                                 tier: existingTier,
+                                billingInterval,
                                 paymentFailed: false,
                                 gracePeriod: false,
                                 gracePeriodEndsAt: null,
@@ -170,7 +183,7 @@ export async function POST(request: NextRequest) {
                             { merge: true }
                         );
 
-                        console.log(`[Stripe Webhook] Payment succeeded for user ${uid}, grace cleared`);
+                        console.log(`[Stripe Webhook] Payment succeeded for user ${uid}, grace cleared (${billingInterval})`);
                     }
                 }
                 break;

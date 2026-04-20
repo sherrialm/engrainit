@@ -6,6 +6,7 @@ import { TIER_LIMITS, OWNER_EMAILS } from '@/config/tiers';
 
 interface TierState {
     tier: UserTier;
+    billingInterval: 'monthly' | 'yearly' | null;
     generationsUsed: number;
     generationsResetDate: Date | null;
     isLoaded: boolean;
@@ -27,6 +28,7 @@ interface TierState {
 
 export const useTierStore = create<TierState>((set, get) => ({
     tier: 'free',
+    billingInterval: null,
     generationsUsed: 0,
     generationsResetDate: null,
     isLoaded: false,
@@ -80,6 +82,11 @@ export const useTierStore = create<TierState>((set, get) => ({
                             const billingData = billingSnap.data();
                             if (billingData.tier === 'pro' || billingData.tier === 'core') {
                                 tier = billingData.tier as UserTier;
+                            }
+                            // Load billing interval if present
+                            const interval = billingData.billingInterval;
+                            if (interval === 'monthly' || interval === 'yearly') {
+                                set({ billingInterval: interval });
                             }
                         }
                     } catch (billingErr) {

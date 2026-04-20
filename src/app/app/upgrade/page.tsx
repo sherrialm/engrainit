@@ -21,7 +21,7 @@ interface PlanAction {
 
 export default function UpgradePage() {
     const { user } = useAuthStore();
-    const { tier } = useTierStore();
+    const { tier, billingInterval } = useTierStore();
     const [loading, setLoading] = useState<BillingPlan | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -40,9 +40,18 @@ export default function UpgradePage() {
         }
     };
 
-    const isFreeCurrent = tier === 'free';
-    const isCoreCurrent = tier === 'core';
-    const isProCurrent = tier === 'pro';
+    const isFreeCurrent      = tier === 'free';
+    // Card-level: is the user on this tier at all?
+    const isCoreTier         = tier === 'core';
+    const isProTier          = tier === 'pro';
+    // Button-level: exact plan match (tier + interval)
+    const isCoreMonthCurrent = isCoreTier && billingInterval === 'monthly';
+    const isCoreYearCurrent  = isCoreTier && billingInterval === 'yearly';
+    const isProMonthCurrent  = isProTier  && billingInterval === 'monthly';
+    const isProYearCurrent   = isProTier  && billingInterval === 'yearly';
+    // If interval is unknown (null) treat the whole tier-card as current (safe fallback)
+    const isCoreCurrentCard  = isCoreTier;
+    const isProCurrentCard   = isProTier;
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
@@ -124,12 +133,12 @@ export default function UpgradePage() {
                 {/* ── Core ── */}
                 <div
                     className={`relative rounded-2xl p-6 transition-all duration-200 ${
-                        isCoreCurrent
+                        isCoreCurrentCard
                             ? 'bg-forest-700 text-parchment-100 shadow-lg ring-2 ring-amber-400'
                             : 'bg-white shadow-lg ring-2 ring-forest-200 hover:ring-forest-400'
                     }`}
                 >
-                    {isCoreCurrent ? (
+                    {isCoreCurrentCard ? (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-forest-900 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                             Your Plan
                         </div>
@@ -141,15 +150,15 @@ export default function UpgradePage() {
 
                     <div className="text-center mb-5">
                         <span className="text-3xl">{TIER_DISPLAY.core.emoji}</span>
-                        <h3 className={`font-serif text-xl font-bold mt-2 ${isCoreCurrent ? 'text-parchment-100' : 'text-forest-700'}`}>
+                        <h3 className={`font-serif text-xl font-bold mt-2 ${isCoreCurrentCard ? 'text-parchment-100' : 'text-forest-700'}`}>
                             {TIER_DISPLAY.core.name}
                         </h3>
-                        <p className={`text-2xl font-bold mt-1 ${isCoreCurrent ? 'text-amber-300' : 'text-forest-600'}`}>
+                        <p className={`text-2xl font-bold mt-1 ${isCoreCurrentCard ? 'text-amber-300' : 'text-forest-600'}`}>
                             {TIER_DISPLAY.core.price}
                         </p>
                     </div>
 
-                    <div className={`h-px mb-5 ${isCoreCurrent ? 'bg-parchment-100/20' : 'bg-forest-200'}`} />
+                    <div className={`h-px mb-5 ${isCoreCurrentCard ? 'bg-parchment-100/20' : 'bg-forest-200'}`} />
 
                     <ul className="space-y-2.5 mb-6">
                         {[
@@ -162,25 +171,20 @@ export default function UpgradePage() {
                             'Smart Resurfacing',
                         ].map((f, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm">
-                                <span className={`mt-0.5 ${isCoreCurrent ? 'text-amber-300' : 'text-forest-500'}`}>✓</span>
-                                <span className={isCoreCurrent ? 'text-parchment-200' : 'text-forest-600'}>{f}</span>
+                                <span className={`mt-0.5 ${isCoreCurrentCard ? 'text-amber-300' : 'text-forest-500'}`}>✓</span>
+                                <span className={isCoreCurrentCard ? 'text-parchment-200' : 'text-forest-600'}>{f}</span>
                             </li>
                         ))}
                     </ul>
 
-                    {isCoreCurrent ? (
-                        <div className="text-center text-sm text-parchment-200/70 font-medium">
-                            Current plan
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
+                    <div className="space-y-2">
                             <button
                                 id="btn-core-monthly"
                                 onClick={() => handleCheckout('core-monthly')}
-                                disabled={loading !== null}
+                                disabled={loading !== null || isCoreMonthCurrent}
                                 className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'core-monthly' ? (
+                                {isCoreMonthCurrent ? 'Current plan — Monthly' : loading === 'core-monthly' ? (
                                     <>
                                         <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
                                         Redirecting…
@@ -191,10 +195,10 @@ export default function UpgradePage() {
                                 id="btn-core-yearly"
                                 type="button"
                                 onClick={() => handleCheckout('core-yearly')}
-                                disabled={loading !== null}
+                                disabled={loading !== null || isCoreYearCurrent}
                                 className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'core-yearly' ? (
+                                {isCoreYearCurrent ? 'Current plan — Yearly' : loading === 'core-yearly' ? (
                                     <>
                                         <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
                                         Redirecting…
@@ -202,18 +206,17 @@ export default function UpgradePage() {
                                 ) : 'Get Core — Yearly'}
                             </button>
                         </div>
-                    )}
                 </div>
 
                 {/* ── Pro ── */}
                 <div
                     className={`relative rounded-2xl p-6 transition-all duration-200 ${
-                        isProCurrent
+                        isProCurrentCard
                             ? 'bg-forest-700 text-parchment-100 shadow-lg ring-2 ring-amber-400'
                             : 'bg-white shadow-lg ring-2 ring-forest-300 hover:ring-forest-500'
                     }`}
                 >
-                    {isProCurrent ? (
+                    {isProCurrentCard ? (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-forest-900 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                             Your Plan
                         </div>
@@ -225,15 +228,15 @@ export default function UpgradePage() {
 
                     <div className="text-center mb-5">
                         <span className="text-3xl">{TIER_DISPLAY.pro.emoji}</span>
-                        <h3 className={`font-serif text-xl font-bold mt-2 ${isProCurrent ? 'text-parchment-100' : 'text-forest-700'}`}>
+                        <h3 className={`font-serif text-xl font-bold mt-2 ${isProCurrentCard ? 'text-parchment-100' : 'text-forest-700'}`}>
                             {TIER_DISPLAY.pro.name}
                         </h3>
-                        <p className={`text-2xl font-bold mt-1 ${isProCurrent ? 'text-amber-300' : 'text-forest-600'}`}>
+                        <p className={`text-2xl font-bold mt-1 ${isProCurrentCard ? 'text-amber-300' : 'text-forest-600'}`}>
                             {TIER_DISPLAY.pro.price}
                         </p>
                     </div>
 
-                    <div className={`h-px mb-5 ${isProCurrent ? 'bg-parchment-100/20' : 'bg-forest-200'}`} />
+                    <div className={`h-px mb-5 ${isProCurrentCard ? 'bg-parchment-100/20' : 'bg-forest-200'}`} />
 
                     <ul className="space-y-2.5 mb-6">
                         {[
@@ -247,25 +250,20 @@ export default function UpgradePage() {
                             'Smart Resurfacing',
                         ].map((f, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm">
-                                <span className={`mt-0.5 ${isProCurrent ? 'text-amber-300' : 'text-forest-500'}`}>✓</span>
-                                <span className={isProCurrent ? 'text-parchment-200' : 'text-forest-600'}>{f}</span>
+                                <span className={`mt-0.5 ${isProCurrentCard ? 'text-amber-300' : 'text-forest-500'}`}>✓</span>
+                                <span className={isProCurrentCard ? 'text-parchment-200' : 'text-forest-600'}>{f}</span>
                             </li>
                         ))}
                     </ul>
 
-                    {isProCurrent ? (
-                        <div className="text-center text-sm text-parchment-200/70 font-medium">
-                            Current plan
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
+                    <div className="space-y-2">
                             <button
                                 id="btn-pro-monthly"
                                 onClick={() => handleCheckout('pro-monthly')}
-                                disabled={loading !== null}
+                                disabled={loading !== null || isProMonthCurrent}
                                 className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'pro-monthly' ? (
+                                {isProMonthCurrent ? 'Current plan — Monthly' : loading === 'pro-monthly' ? (
                                     <>
                                         <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
                                         Redirecting…
@@ -276,18 +274,22 @@ export default function UpgradePage() {
                                 id="btn-pro-yearly"
                                 type="button"
                                 onClick={() => handleCheckout('pro-yearly')}
-                                disabled={loading !== null}
-                                className="w-full py-1 text-xs text-forest-500 hover:text-forest-700 underline transition-colors disabled:opacity-60"
+                                disabled={loading !== null || isProYearCurrent}
+                                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'pro-yearly' ? 'Redirecting…' : 'Prefer yearly? Save with annual.'}
+                                {isProYearCurrent ? 'Current plan — Yearly' : loading === 'pro-yearly' ? (
+                                    <>
+                                        <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
+                                        Redirecting…
+                                    </>
+                                ) : 'Upgrade to Pro — Yearly'}
                             </button>
                         </div>
-                    )}
                 </div>
             </div>
 
             {/* Secure checkout note */}
-            {!isProCurrent && !isCoreCurrent && (
+            {!isProCurrentCard && !isCoreCurrentCard && (
                 <p className="text-center text-xs text-forest-400 mb-6">
                     🔒 Secure checkout powered by Stripe. Cancel anytime.
                 </p>
