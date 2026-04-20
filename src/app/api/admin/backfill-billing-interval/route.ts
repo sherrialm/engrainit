@@ -20,19 +20,37 @@ import { getStripe } from '@/lib/stripe';
  *   Header:  x-admin-secret: <ADMIN_BACKFILL_SECRET>
  *
  * Usage:
- *   curl -X POST https://your-app.vercel.app/api/admin/backfill-billing-interval \
+ *   Dry run:
+ *   curl -X POST "https://engrainit.vercel.app/api/admin/backfill-billing-interval?dryRun=true" \
  *        -H "x-admin-secret: YOUR_SECRET"
  *
- *   Dry run (no writes):
- *   curl -X POST "https://your-app.vercel.app/api/admin/backfill-billing-interval?dryRun=true" \
+ *   Real run:
+ *   curl -X POST "https://engrainit.vercel.app/api/admin/backfill-billing-interval" \
  *        -H "x-admin-secret: YOUR_SECRET"
  */
 export async function POST(request: NextRequest) {
+    // ── Top-level error boundary — always return JSON, never a raw 500 ────────
+    try {
+        return await runBackfill(request);
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[Backfill] Unhandled error:', message);
+        return NextResponse.json(
+            {
+                error: 'Backfill route failed with an unhandled error.',
+                detail: message,
+            },
+            { status: 500 }
+        );
+    }
+}
+
+async function runBackfill(request: NextRequest): Promise<NextResponse> {
     // ── Auth ─────────────────────────────────────────────────────────────────
     const adminSecret = process.env.ADMIN_BACKFILL_SECRET;
     if (!adminSecret) {
         return NextResponse.json(
-            { error: 'ADMIN_BACKFILL_SECRET is not configured on the server.' },
+            { error: 'ADMIN_BACKFILL_SECRET is not configured on the server. Add it to your Vercel environment variables and redeploy.' },
             { status: 503 }
         );
     }
@@ -44,33 +62,37 @@ export async function POST(request: NextRequest) {
     // ── Dry-run flag ─────────────────────────────────────────────────────────
     const dryRun = request.nextUrl.searchParams.get('dryRun') === 'true';
 
-    const db = getAdminDb();
-    const stripe = getStripe();
+    // ── Initialize Firestore Admin ────────────────────────────────────────────
+    let db: ReturnType<typeof getAdminDb>;
+    try {
+        db = getAdminDb();
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+            { error: 'Failed to initialize Firestore Admin SDK.', detail: msg },
+            { status: 503 }
+        );
+    }
+
+    // ── Query all billing/* docs (no .where — avoids composite index requirement) ─
+    // Filter to paid tiers in memory. This is safe for a one-time admin utility.
+    let billingSnap: FirebaseFirestore.QuerySnapshot;
+    try {
+        billingSnap = await db.collectionGroup('billing').get();
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+            { error: 'Firestore collectionGroup query failed.', detail: msg },
+            { status: 500 }
+        );
+    }
 
     const results: {
         uid: string;
-        status: 'updated' | 'skipped_no_sub_id' | 'skipped_cancelled' | 'skipped_stripe_error' | 'dry_run';
+        status: 'updated' | 'skipped_no_sub_id' | 'skipped_cancelled' | 'skipped_already_synced' | 'skipped_not_paid' | 'skipped_stripe_error' | 'dry_run';
         interval?: string;
         reason?: string;
     }[] = [];
-
-    // ── Query all billing/status docs for paid tiers ─────────────────────────
-    // collectionGroup('billing') matches users/{uid}/billing/* docs.
-    // We filter to active paid tiers in memory — Firestore OR queries on
-    // subcollections require a composite index; filtering in memory is simpler
-    // for a one-time admin utility.
-    const billingSnap = await db
-        .collectionGroup('billing')
-        .where('tier', 'in', ['pro', 'core'])
-        .get();
-
-    if (billingSnap.empty) {
-        return NextResponse.json({
-            message: 'No paid users found.',
-            processed: 0,
-            results: [],
-        });
-    }
 
     for (const docSnap of billingSnap.docs) {
         const data = docSnap.data() as {
@@ -83,13 +105,23 @@ export async function POST(request: NextRequest) {
         const pathParts = docSnap.ref.path.split('/');
         const uid = pathParts[1] ?? 'unknown';
 
-        // Skip if billingInterval is already populated with a valid value
+        // Only process paid tiers (filter in memory — no index needed)
+        if (data.tier !== 'pro' && data.tier !== 'core') {
+            continue; // silently skip free users — don't add to results
+        }
+
+        // Skip if billingInterval is already a valid value
         if (data.billingInterval === 'monthly' || data.billingInterval === 'yearly') {
-            // Already synced — do not touch
+            results.push({
+                uid,
+                status: 'skipped_already_synced',
+                interval: data.billingInterval,
+                reason: 'billingInterval already set — not touched',
+            });
             continue;
         }
 
-        // Skip if no subscription ID to look up
+        // Skip if no subscription ID to look up in Stripe
         const subId = data.stripeSubscriptionId;
         if (!subId) {
             results.push({
@@ -103,16 +135,18 @@ export async function POST(request: NextRequest) {
         // ── Retrieve subscription from Stripe ─────────────────────────────
         let billingInterval: 'monthly' | 'yearly';
         try {
+            // Initialize Stripe lazily — only when we actually need it
+            const stripe = getStripe();
             const sub = await stripe.subscriptions.retrieve(subId, {
                 expand: ['items.data.plan'],
             });
 
-            // Skip cancelled/incomplete subscriptions
+            // Skip cancelled/incomplete subscriptions — don't write interval
             if (sub.status === 'canceled' || sub.status === 'incomplete_expired') {
                 results.push({
                     uid,
                     status: 'skipped_cancelled',
-                    reason: `Subscription status is '${sub.status}'`,
+                    reason: `Stripe subscription status is '${sub.status}'`,
                 });
                 continue;
             }
@@ -135,28 +169,40 @@ export async function POST(request: NextRequest) {
                 uid,
                 status: 'dry_run',
                 interval: billingInterval,
-                reason: 'Would write billingInterval (dry run)',
+                reason: 'Would write billingInterval (dry run — no changes made)',
             });
         } else {
-            await docSnap.ref.set(
-                { billingInterval, updatedAt: new Date() },
-                { merge: true }
-            );
-            results.push({ uid, status: 'updated', interval: billingInterval });
+            try {
+                await docSnap.ref.set(
+                    { billingInterval, updatedAt: new Date() },
+                    { merge: true }
+                );
+                results.push({ uid, status: 'updated', interval: billingInterval });
+            } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                results.push({
+                    uid,
+                    status: 'skipped_stripe_error', // reuse closest status type
+                    reason: `Firestore write error: ${msg}`,
+                });
+            }
         }
     }
 
     const updated  = results.filter(r => r.status === 'updated').length;
     const dryRuns  = results.filter(r => r.status === 'dry_run').length;
     const skipped  = results.filter(r => r.status.startsWith('skipped')).length;
+    const paidDocs = results.length;
 
     return NextResponse.json({
         message: dryRun
-            ? `Dry run complete. Would update ${dryRuns} user(s).`
-            : `Backfill complete. Updated ${updated} user(s), skipped ${skipped}.`,
+            ? `Dry run complete. Would update ${dryRuns} user(s) out of ${paidDocs} paid account(s) found.`
+            : `Backfill complete. Updated ${updated} user(s), skipped ${skipped} out of ${paidDocs} paid account(s).`,
         dryRun,
-        processed: billingSnap.size,
-        updated:   dryRun ? dryRuns : updated,
+        totalBillingDocsScanned: billingSnap.size,
+        paidDocsFound: paidDocs,
+        wouldUpdate: dryRun ? dryRuns : undefined,
+        updated:     dryRun ? undefined : updated,
         skipped,
         results,
     });
