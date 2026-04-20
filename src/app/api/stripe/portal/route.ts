@@ -1,6 +1,26 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
+import { logger } from '@/lib/logger';
+
+/**
+ * Sanitize Stripe/internal errors so raw details never reach the client.
+ */
+function safePortalError(error: unknown): { message: string; status: number } {
+    const raw = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Stripe Portal', 'Error opening portal', raw);
+
+    if (raw.includes('auth') || raw.includes('token') || raw.includes('Unauthorized')) {
+        return { message: 'Your session has expired. Please sign in again.', status: 401 };
+    }
+    if (raw.includes('configured') || raw.includes('SECRET_KEY') || raw.includes('customer')) {
+        return { message: 'Billing portal is temporarily unavailable. Please try again later.', status: 503 };
+    }
+    return { message: 'Something went wrong opening billing. Please try again.', status: 500 };
+}
 
 /**
  * POST /api/stripe/portal
@@ -54,13 +74,10 @@ export async function POST(request: NextRequest) {
             return_url: returnUrl,
         });
 
+        logger.info('Stripe Portal', 'Session created', { uid });
         return NextResponse.json({ url: session.url });
     } catch (error: unknown) {
-        console.error('[Stripe Portal] Error:', error);
-        const message = error instanceof Error ? error.message : 'Internal server error';
-        return NextResponse.json(
-            { error: message },
-            { status: 500 }
-        );
+        const { message, status } = safePortalError(error);
+        return NextResponse.json({ error: message }, { status });
     }
 }

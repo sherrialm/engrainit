@@ -1,7 +1,11 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import Stripe from 'stripe';
+
 
 /**
  * POST /api/stripe/webhook

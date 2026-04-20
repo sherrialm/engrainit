@@ -1,3 +1,9 @@
+// Required: firebase-admin uses require() (CommonJS) which only works in Node.js.
+// Without this, Vercel may assign this route to the Edge Runtime, which crashes
+// at module init before any handler code runs — producing content-length: 0 / 500.
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getStripe } from '@/lib/stripe';
