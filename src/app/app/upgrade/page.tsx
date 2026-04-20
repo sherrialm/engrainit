@@ -192,9 +192,14 @@ export default function UpgradePage() {
                                 type="button"
                                 onClick={() => handleCheckout('core-yearly')}
                                 disabled={loading !== null}
-                                className="w-full py-1 text-xs text-forest-500 hover:text-forest-700 underline transition-colors disabled:opacity-60"
+                                className="w-full py-2.5 rounded-lg font-semibold text-sm bg-forest-600 text-parchment-100 hover:bg-forest-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading === 'core-yearly' ? 'Redirecting…' : 'Prefer yearly? Save with annual.'}
+                                {loading === 'core-yearly' ? (
+                                    <>
+                                        <span className="inline-block w-4 h-4 border-2 border-parchment-100/40 border-t-parchment-100 rounded-full animate-spin" />
+                                        Redirecting…
+                                    </>
+                                ) : 'Get Core — Yearly'}
                             </button>
                         </div>
                     )}
