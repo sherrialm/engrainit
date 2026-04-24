@@ -50,55 +50,55 @@ export default function HomePage() {
 
                     {/* Tagline */}
                     <p className="text-xl md:text-2xl text-forest-600 font-light">
-                        Mental Engraving through Intentional Repetition
+                        Train your mind. Shape your identity.
                     </p>
 
                     {/* Description */}
                     <p className="text-forest-500 max-w-md mx-auto">
-                        Transform your words into rhythmic mental imprints.
-                        Type, speak, or upload — then loop until it becomes part of you.
+                        EngrainIt uses intelligent repetition to help you build focus,
+                        reinforce identity, and create a daily mental training ritual.
                     </p>
 
                     {/* CTA Buttons */}
                     <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                         <Link href="/login" className="btn-primary text-center">
-                            Get Started
+                            Start Training Free
                         </Link>
                         <Link href="/about" className="btn-secondary text-center">
                             Learn More
                         </Link>
                     </div>
 
-                    {/* Features Preview */}
+                    {/* Value Pillars */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12">
                         <div className="card text-center">
-                            <div className="text-3xl mb-3">✍️</div>
-                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Text to Loop</h3>
+                            <div className="text-3xl mb-3">🧠</div>
+                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Identity &amp; Focus</h3>
                             <p className="text-sm text-forest-500">
-                                Type your affirmation, verse, or concept and hear it spoken.
+                                Reinforce who you are and what you&apos;re building toward — every single day.
                             </p>
                         </div>
 
                         <div className="card text-center">
-                            <div className="text-3xl mb-3">🎙️</div>
-                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Voice Capture</h3>
+                            <div className="text-3xl mb-3">🌅</div>
+                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Daily Ritual</h3>
                             <p className="text-sm text-forest-500">
-                                Record your own voice for a personal touch.
+                                Start each day with a 90-second mental alignment to set your intention.
                             </p>
                         </div>
 
                         <div className="card text-center">
                             <div className="text-3xl mb-3">🔁</div>
-                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Smart Repetition</h3>
+                            <h3 className="font-serif text-lg font-semibold mb-2 text-forest-700">Intelligent Repetition</h3>
                             <p className="text-sm text-forest-500">
-                                Spaced intervals for deeper mental engraving.
+                                The more you listen, the deeper it sinks. Your mind learns through rhythm.
                             </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <footer className="absolute bottom-8 text-center text-sm text-forest-400">
+                <footer className="mt-16 pb-8 text-center text-sm text-forest-400">
                     © 2026 EngrainIt. All rights reserved.
                 </footer>
             </main>

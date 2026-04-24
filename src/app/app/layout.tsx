@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { useTierStore } from '@/stores/tierStore';
@@ -17,6 +18,7 @@ export default function AppLayout({
     const { user, isInitialized, initializeAuth, signOut } = useAuthStore();
     const { tier, isLoaded, loadProfile } = useTierStore();
     const router = useRouter();
+    const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // Initialize auth listener on mount
@@ -71,42 +73,42 @@ export default function AppLayout({
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
-                        <a href="/app" className="flex items-center gap-2">
+                        <Link href="/app" className="flex items-center gap-2">
                             <Image
                                 src="/logo.png"
                                 alt="EngrainIt"
-                                width={36}
-                                height={36}
+                                width={44}
+                                height={44}
                                 className="rounded-full"
                             />
-                            <h1 className="font-serif text-xl sm:text-2xl font-bold text-forest-700">
+                            <h1 className="font-serif text-xl sm:text-2xl font-bold text-forest-800">
                                 EngrainIt
                             </h1>
-                        </a>
+                        </Link>
 
                         {/* Desktop Navigation */}
                         <nav className="hidden sm:flex items-center gap-4">
                             {isLoaded && (
-                                <a href="/app/upgrade" className="px-2 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-600 hover:bg-amber-100 hover:text-amber-800 transition-colors">
+                                <Link href="/app/upgrade" className="px-2 py-1 rounded-full text-xs font-medium bg-forest-100 text-forest-600 hover:bg-amber-100 hover:text-amber-800 transition-colors">
                                     {TIER_DISPLAY[tier].emoji} {TIER_DISPLAY[tier].name}
-                                </a>
+                                </Link>
                             )}
                             <AIStatusIndicator />
-                            <a href="/app" className="btn-ghost text-sm flex items-center gap-1.5">
+                            <Link href="/app" className="btn-ghost text-sm flex items-center gap-1.5 text-forest-700 hover:text-forest-900">
                                 <HomeIcon className="w-4 h-4" />
                                 Home
-                            </a>
-                            <a href="/app/vault" className="btn-ghost text-sm flex items-center gap-1.5">
+                            </Link>
+                            <Link href="/app/vault" className="btn-ghost text-sm flex items-center gap-1.5 text-forest-700 hover:text-forest-900">
                                 <VaultIcon className="w-4 h-4" />
                                 Vault
-                            </a>
-                            <a href="/app/progress" className="btn-ghost text-sm flex items-center gap-1.5">
+                            </Link>
+                            <Link href="/app/progress" className="btn-ghost text-sm flex items-center gap-1.5 text-forest-700 hover:text-forest-900">
                                 <ProgressIcon className="w-4 h-4" />
                                 Progress
-                            </a>
+                            </Link>
                             <button
                                 onClick={() => signOut()}
-                                className="btn-ghost text-forest-400 hover:text-forest-600 text-sm"
+                                className="btn-ghost text-forest-500 hover:text-forest-700 text-sm"
                             >
                                 Sign Out
                             </button>
@@ -134,35 +136,35 @@ export default function AppLayout({
                 {/* Mobile menu dropdown */}
                 {mobileMenuOpen && (
                     <div className="sm:hidden border-t border-forest-100 bg-parchment-100 px-4 py-3 space-y-2">
-                        <a
+                        <Link
                             href="/app"
                             onClick={() => setMobileMenuOpen(false)}
                             className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
                             <HomeIcon className="w-4 h-4" /> Home
-                        </a>
-                        <a
+                        </Link>
+                        <Link
                             href="/app/vault"
                             onClick={() => setMobileMenuOpen(false)}
                             className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
                             <VaultIcon className="w-4 h-4" /> Vault
-                        </a>
-                        <a
+                        </Link>
+                        <Link
                             href="/app/progress"
                             onClick={() => setMobileMenuOpen(false)}
                             className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
                             <ProgressIcon className="w-4 h-4" /> Progress
-                        </a>
+                        </Link>
                         {tier !== 'pro' && (
-                            <a
+                            <Link
                                 href="/app/upgrade"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="block py-2 px-3 rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors font-medium"
                             >
                                 Upgrade
-                            </a>
+                            </Link>
                         )}
                         <button
                             onClick={() => {
@@ -177,8 +179,8 @@ export default function AppLayout({
                 )}
             </header>
 
-            {/* Main Content */}
-            <main>
+            {/* Main Content — page transition */}
+            <main key={pathname} className="page-enter">
                 {children}
             </main>
         </div>

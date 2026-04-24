@@ -21,6 +21,7 @@ import { BriefingIcon, LoopIcon, CheckIcon } from '@/components/Icons';
 import { generateBriefing } from '@/services/AIService';
 import { getCachedBriefing, saveBriefing } from '@/services/BriefingService';
 import { playCompletionChime } from '@/services/chime';
+import { getMorningStreakInfo, getStreakMessage } from '@/services/morningStreakService';
 import type { Loop, LoopTag } from '@/types';
 
 // ── Segment definitions ───────────────────────────────────────
@@ -84,12 +85,16 @@ export default function MorningFlowPage() {
     // Completion tracking
     const [completedToday, setCompletedToday] = useState(false);
 
+    // Streak info — computed after completion
+    const [streakInfo, setStreakInfo] = useState({ currentStreak: 0, totalCompletions: 0, completedToday: false, last7Days: [false, false, false, false, false, false, false] });
+
     // Check if already completed today
     useEffect(() => {
         const key = `engrainit_morning_${getTodayKey()}`;
         if (localStorage.getItem(key) === 'done') {
             setCompletedToday(true);
         }
+        setStreakInfo(getMorningStreakInfo());
     }, []);
 
     // Load loops
@@ -181,6 +186,8 @@ export default function MorningFlowPage() {
         localStorage.setItem(key, 'done');
         setCompletedToday(true);
         playCompletionChime();
+        // Refresh streak info after marking complete
+        setStreakInfo(getMorningStreakInfo());
     }
 
     function handleSkipSegment() {
@@ -225,6 +232,7 @@ export default function MorningFlowPage() {
 
     const content = phase === 'playing' ? getSegmentContent() : { title: '', body: '' };
     const hasLoops = identityLoops.length > 0 || focusLoops.length > 0;
+    const streakMessage = getStreakMessage(streakInfo.currentStreak, streakInfo.completedToday);
 
     return (
         <div className="min-h-[80vh] flex flex-col max-w-2xl mx-auto px-4 py-6">
@@ -246,6 +254,13 @@ export default function MorningFlowPage() {
                         </p>
                     </div>
 
+                    {/* Streak badge on ready screen */}
+                    {streakInfo.currentStreak > 0 && (
+                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-100 px-4 py-2 rounded-full">
+                            🔥 {streakInfo.currentStreak} day streak
+                        </div>
+                    )}
+
                     {/* Segment preview */}
                     <div className="w-full max-w-xs space-y-2">
                         {SEGMENTS.map((seg, i) => (
@@ -262,9 +277,14 @@ export default function MorningFlowPage() {
                     </div>
 
                     {!hasLoops && (
-                        <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-                            Tip: Create loops tagged &quot;identity&quot; or &quot;focus&quot; for a personalized flow.
-                        </p>
+                        <div className="bg-parchment-100 border border-forest-100 rounded-xl px-4 py-3 text-left space-y-1 max-w-xs w-full">
+                            <p className="text-xs font-semibold text-forest-700">
+                                ✨ First time? No problem.
+                            </p>
+                            <p className="text-xs text-forest-500 leading-relaxed">
+                                This ritual uses built-in affirmations until you create your own loops. After this, build your first personal loop to make it yours.
+                            </p>
+                        </div>
                     )}
 
                     {completedToday && (
@@ -279,7 +299,7 @@ export default function MorningFlowPage() {
                         disabled={isLoading}
                         className="btn-primary px-8 py-3 text-lg disabled:opacity-50"
                     >
-                        {isLoading ? 'Preparing...' : completedToday ? 'Run Again' : 'Begin'}
+                        {isLoading ? 'Preparing your daily briefing…' : completedToday ? 'Run Again' : 'Begin'}
                     </button>
 
                     <Link href="/app" className="text-sm text-forest-500 hover:text-forest-700 transition-colors">
@@ -348,7 +368,7 @@ export default function MorningFlowPage() {
                 </div>
             )}
 
-            {/* Complete State */}
+            {/* Complete State — Enhanced with streak + next steps */}
             {phase === 'complete' && (
                 <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
                     <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
@@ -363,31 +383,93 @@ export default function MorningFlowPage() {
                         </p>
                     </div>
 
+                    {/* Streak & progress stats */}
+                    <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5 max-w-xs w-full space-y-3">
+                        {streakInfo.currentStreak > 0 && (
+                            <div className="flex items-center justify-center gap-2 text-lg font-bold text-amber-700">
+                                🔥 Day {streakInfo.currentStreak}
+                            </div>
+                        )}
+                        <p className="text-sm text-forest-600 italic leading-relaxed">
+                            {streakMessage}
+                        </p>
+                        {streakInfo.totalCompletions > 1 && (
+                            <p className="text-xs text-forest-400">
+                                {streakInfo.totalCompletions} total morning alignments
+                            </p>
+                        )}
+
+                        {/* Last 7 days mini-dots */}
+                        <div className="flex items-center justify-center gap-1.5 pt-1">
+                            {streakInfo.last7Days.map((done, i) => (
+                                <div
+                                    key={i}
+                                    className={`w-3 h-3 rounded-full ${
+                                        done ? 'bg-forest-600' : 'bg-parchment-300 border border-forest-200'
+                                    }`}
+                                    title={done ? 'Completed' : 'Missed'}
+                                />
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-forest-400">Last 7 days</p>
+                    </div>
+
+                    {/* Encouragement quote */}
                     <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5 max-w-xs w-full">
                         <p className="text-sm text-forest-600 italic leading-relaxed">
                             &ldquo;{encouragement}&rdquo;
                         </p>
                     </div>
 
-                    <div className="flex gap-3">
+                    {/* Next step CTAs */}
+                    <div className="flex flex-col gap-3 max-w-xs w-full">
                         <Link
-                            href="/app"
-                            className="btn-primary px-6"
+                            href="/app/session"
+                            className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-parchment-100 bg-forest-700 hover:bg-forest-600 transition-colors"
                         >
-                            Back to Home
+                            Continue to a Session →
                         </Link>
-                        <button
-                            onClick={() => {
-                                setPhase('ready');
-                                setCurrentSegment(0);
-                                setSegmentProgress(0);
-                                setOverallProgress(0);
-                            }}
-                            className="btn-ghost px-6"
+                        <div className="flex gap-3">
+                            <Link
+                                href="/app"
+                                className="flex-1 py-3 rounded-xl text-sm font-medium text-center text-forest-700 bg-parchment-100 border border-forest-200 hover:bg-parchment-300 transition-colors"
+                            >
+                                Back to Home
+                            </Link>
+                            <button
+                                onClick={() => {
+                                    setPhase('ready');
+                                    setCurrentSegment(0);
+                                    setSegmentProgress(0);
+                                    setOverallProgress(0);
+                                }}
+                                className="flex-1 py-3 rounded-xl text-sm font-medium text-center text-forest-500 bg-parchment-100 border border-forest-200 hover:bg-parchment-300 transition-colors"
+                            >
+                                Run Again
+                            </button>
+                        </div>
+                        <Link
+                            href="/app/generate"
+                            className="block text-xs text-forest-400 hover:text-forest-600 transition-colors text-center pt-1"
                         >
-                            Run Again
-                        </button>
+                            Create a New Loop
+                        </Link>
                     </div>
+
+                    {/* First-run next step: encourage loop creation */}
+                    {!hasLoops && (
+                        <div className="max-w-xs w-full text-center space-y-2">
+                            <p className="text-xs text-forest-400">
+                                Ready to make this practice your own?
+                            </p>
+                            <Link
+                                href="/app/generate"
+                                className="block w-full py-3 rounded-xl text-sm font-semibold text-forest-700 bg-parchment-100 border border-forest-200 hover:bg-parchment-300 transition-colors"
+                            >
+                                Create My First Personal Loop →
+                            </Link>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

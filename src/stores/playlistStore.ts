@@ -94,9 +94,11 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
 
         const nextIdx = queueIndex + 1;
         if (nextIdx >= queue.length) {
-            // End of queue
-            get().stopQueue();
-            set({ isQueueMode: false });
+            // Wrap back to first loop for continuous playback
+            set({ queueIndex: 0 });
+            const item = queue[0];
+            useAudioStore.getState().loadAndPlay(item.loop);
+            get()._startDwellTimer();
             return;
         }
 
