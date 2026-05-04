@@ -184,14 +184,14 @@ export default function AboutPage() {
                 </h2>
                 <div className="space-y-6 max-w-2xl mx-auto">
                     <div className="card">
-                        <h3 className="font-serif text-lg font-semibold text-forest-700 mb-2">💰 Is EngrainIt free?</h3>
+                        <h3 className="font-serif text-lg font-semibold text-forest-700 mb-2">💰 How does pricing work?</h3>
                         <p className="text-forest-600">
-                            Yes! EngrainIt is currently in <strong>early access</strong> and completely free.
-                            No credit card required, no hidden charges, and no premium paywalls.
+                            EngrainIt offers a free tier with core functionality, and paid plans that unlock
+                            higher limits, additional voices, document upload, and advanced session types.
                         </p>
                         <p className="text-forest-500 text-sm mt-2">
-                            As the app grows, premium features may be introduced, but core functionality
-                            will always remain accessible.
+                            Feature availability varies by plan. See the in-app upgrade page for current
+                            plan details and pricing.
                         </p>
                     </div>
                     <div className="card">
@@ -220,7 +220,7 @@ export default function AboutPage() {
                     Ready to Start Engraining?
                 </h2>
                 <p className="text-forest-500 mb-8 max-w-lg mx-auto">
-                    Join thousands who are transforming their minds through intentional repetition.
+                    Transform your mind through intentional repetition — one loop at a time.
                 </p>
                 <Link href="/login" className="btn-primary text-lg px-8 py-3">
                     Get Started Free

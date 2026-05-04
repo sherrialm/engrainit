@@ -14,12 +14,39 @@ import { LoopGenerationInput } from '@/types';
 
 const MOOD_LABELS: Record<string, string> = {
     calm: 'Calm',
+    anxious: 'Anxious',
+    overwhelmed: 'Overwhelmed',
+    sad: 'Sad',
+    'low-energy': 'Low energy',
+    stuck: 'Stuck',
     focused: 'Focused',
+    hopeful: 'Hopeful',
+    excited: 'Excited',
+    unmotivated: 'Unmotivated',
+    // Legacy support
     stressed: 'Stressed',
     motivated: 'Motivated',
     tired: 'Tired',
 };
 
+const INTENT_LABELS: Record<string, string> = {
+    memorize: 'Memorize something',
+    learn: 'Learn something new',
+    'gain-clarity': 'Gain clarity',
+    'calm-down': 'Calm down',
+    'build-confidence': 'Build confidence',
+    'improve-focus': 'Improve focus',
+    'reset-thinking': 'Reset my thinking',
+    'stay-encouraged': 'Stay encouraged',
+    'prepare-for-day': 'Prepare for the day',
+    'wind-down': 'Wind down',
+    // Legacy goal support
+    'start-day': 'Start the day right',
+    'stay-disciplined': 'Stay disciplined',
+    'reduce-stress': 'Reduce stress',
+};
+
+/** @deprecated Legacy support — use INTENT_LABELS */
 const GOAL_LABELS: Record<string, string> = {
     'start-day': 'Start the day right',
     'improve-focus': 'Improve focus',
@@ -28,6 +55,7 @@ const GOAL_LABELS: Record<string, string> = {
     'reduce-stress': 'Reduce stress',
 };
 
+/** @deprecated Legacy support — use INTENT_LABELS */
 const PROBLEM_LABELS: Record<string, string> = {
     overwhelmed: 'Overwhelmed',
     distracted: 'Distracted',
@@ -41,8 +69,16 @@ const PROBLEM_LABELS: Record<string, string> = {
  */
 export function buildIntentSummary(input: LoopGenerationInput): string {
     const moods = input.moods.map(m => MOOD_LABELS[m] || m).join(', ');
-    const goals = input.goals.map(g => GOAL_LABELS[g] || g).join(', ');
-    const problems = input.problems.map(p => PROBLEM_LABELS[p] || p).join(', ');
+
+    // Use new intents if available, fall back to legacy goals+problems
+    const intents = input.intents?.length
+        ? input.intents.map(i => INTENT_LABELS[i] || i).join(', ')
+        : '';
+    const legacyGoals = input.goals?.map(g => GOAL_LABELS[g] || g).join(', ') || '';
+    const legacyProblems = input.problems?.map(p => PROBLEM_LABELS[p] || p).join(', ') || '';
+
+    const goals = intents || legacyGoals;
+    const problems = !intents ? legacyProblems : '';
 
     let summary = `It sounds like your goal is to create a loop`;
 
@@ -67,15 +103,23 @@ export function buildIntentSummary(input: LoopGenerationInput): string {
  */
 export function buildLoopGenerationPrompt(input: LoopGenerationInput): string {
     const moods = input.moods.map(m => MOOD_LABELS[m] || m).join(', ');
-    const goals = input.goals.map(g => GOAL_LABELS[g] || g).join(', ');
-    const problems = input.problems.map(p => PROBLEM_LABELS[p] || p).join(', ');
+
+    // Use new intents if available, fall back to legacy goals+problems
+    const intents = input.intents?.length
+        ? input.intents.map(i => INTENT_LABELS[i] || i).join(', ')
+        : '';
+    const legacyGoals = input.goals?.map(g => GOAL_LABELS[g] || g).join(', ') || '';
+    const legacyProblems = input.problems?.map(p => PROBLEM_LABELS[p] || p).join(', ') || '';
+
+    const goals = intents || legacyGoals || 'General improvement';
+    const challenges = !intents ? (legacyProblems || 'None specified') : 'None specified';
 
     return `You are creating a mental loop for audio repetition-based training.
 
 CONTEXT:
 - Current mood: ${moods || 'Not specified'}
-- Goals: ${goals || 'General improvement'}
-- Challenges: ${problems || 'None specified'}
+- Goals: ${goals}
+- Challenges: ${challenges}
 ${input.details ? `- Additional context: "${input.details}"` : ''}
 
 CRITICAL CONSTRAINTS:

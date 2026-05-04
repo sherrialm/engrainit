@@ -20,16 +20,14 @@ export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps)
     const messages: Record<string, string> = {
         generations: "You've used all your free generations this month.",
         loops: "You've reached the maximum saved loops for your plan.",
-        voice: "This voice is available on the Core plan and above.",
-        document: "Document upload is available on the Core plan and above.",
+        voice: "Additional voices are available on the Pro plan.",
+        document: "Document upload is available on the Pro plan.",
         textLength: `Your plan supports up to ${TIER_LIMITS[tier].maxTextLength} characters.`,
     };
 
     // Don't show for Pro users
     if (tier === 'pro') return null;
 
-    const nextTier: UserTier = tier === 'free' ? 'core' : 'pro';
-    const nextTierInfo = TIER_DISPLAY[nextTier];
 
     const handleUpgrade = async () => {
         setIsLoading(true);
@@ -49,13 +47,12 @@ export default function UpgradePrompt({ reason, onDismiss }: UpgradePromptProps)
                 {messages[reason]}
             </p>
             <p className="text-forest-500 text-sm mb-4">
-                Upgrade to {nextTierInfo.emoji} <strong>{nextTierInfo.name}</strong> for more features.
+                Upgrade to Pro to keep your reinforcement momentum going.
             </p>
 
             {/* Tier comparison mini */}
             <div className="flex gap-3 justify-center mb-4">
                 <TierBadge tier="free" current={tier} />
-                <TierBadge tier="core" current={tier} />
                 <TierBadge tier="pro" current={tier} />
             </div>
 

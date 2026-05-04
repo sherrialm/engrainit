@@ -14,12 +14,14 @@ export class SpacedRepetitionController {
     private countdownTimer: NodeJS.Timeout | null = null;
     private remainingSeconds: number = 0;
     private loopCount: number = 0;
+    private maxRepeats: number | null = null; // null = infinite
 
     // Callbacks
     public onIntervalStart?: (remainingSeconds: number) => void;
     public onIntervalTick?: (remainingSeconds: number) => void;
     public onIntervalEnd?: () => void;
-    public onLoopComplete?: (loopCount: number) => void;
+    public onLoopComplete?: (loopCount: number, maxRepeats: number | null) => void;
+    public onSessionComplete?: () => void;
     public onStateChange?: (isActive: boolean, isPlaying: boolean, intervalRemaining: number | null) => void;
 
     constructor(audioEngine: AudioEngine, intervalSeconds: number = 30) {
@@ -61,6 +63,21 @@ export class SpacedRepetitionController {
      */
     getInterval(): number {
         return this.intervalSeconds;
+    }
+
+    /**
+     * Set the maximum number of repeats (null = infinite)
+     */
+    setMaxRepeats(n: number | null): void {
+        this.maxRepeats = n;
+        console.log(`[SpacedRepetitionController] setMaxRepeats: ${n === null ? 'infinite' : n}`);
+    }
+
+    /**
+     * Get current max repeats setting
+     */
+    getMaxRepeats(): number | null {
+        return this.maxRepeats;
     }
 
     /**
@@ -169,8 +186,22 @@ export class SpacedRepetitionController {
         console.log('[SpacedRepetitionController] Playing audio, interval starts after play cycle');
         this.audioEngine.play();
         this.loopCount++;
-        this.onLoopComplete?.(this.loopCount);
+        this.onLoopComplete?.(this.loopCount, this.maxRepeats);
         this.broadcastState();
+
+        // Check if we've reached the max repeat count
+        if (this.maxRepeats !== null && this.loopCount >= this.maxRepeats) {
+            console.log(`[SpacedRepetitionController] Max repeats reached (${this.loopCount}/${this.maxRepeats}), will stop after this play`);
+            // Let current play finish, then stop (don't schedule interval)
+            const duration = this.audioEngine.getDuration() || 5;
+            this.intervalTimer = setTimeout(() => {
+                if (!this.isActive) return;
+                this.stop();
+                // Notify playlist store so it can advance to next loop
+                this.onSessionComplete?.();
+            }, duration * 1000);
+            return;
+        }
 
         // Schedule interval after one play cycle
         const duration = this.audioEngine.getDuration() || 5;

@@ -29,7 +29,7 @@ export default function PricingModal({
         try {
             await startProCheckout(selected);
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Failed to start checkout';
+            const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
             setError(message);
             setIsLoading(false);
         }
@@ -94,7 +94,16 @@ export default function PricingModal({
 
             {/* Error */}
             {error && (
-                <p className="text-red-500 text-xs text-center mb-3">{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-center">
+                    <p className="text-red-600 text-xs">{error}</p>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        className="text-red-500 text-[10px] underline mt-1 hover:text-red-700"
+                    >
+                        Dismiss
+                    </button>
+                </div>
             )}
 
             {/* CTA */}

@@ -25,8 +25,8 @@ const SCREENS = [
     },
     {
         icon: '✨',
-        title: 'Start Your First Loop',
-        description: 'Generate a personalized loop in seconds. Choose how you feel, what you want to achieve, and let EngrainIt create a loop designed for you.',
+        title: 'Create Your First Training Loop',
+        description: 'Tell EngrainIt how you feel and what you want to work on. In seconds, you\'ll have a personalized mental training loop — the start of your daily practice.',
         isCta: true,
     },
 ];
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                         onClick={advance}
                         className="w-full py-4 rounded-xl font-semibold text-lg transition-all duration-200 bg-forest-600 text-parchment-100 hover:bg-forest-700 hover:shadow-lg"
                     >
-                        {isLast ? 'Create My First Loop' : 'Next'}
+                        {isLast ? 'Begin My First Practice' : 'Next'}
                     </button>
                 </div>
             </div>

@@ -66,7 +66,7 @@ export default function SplashScreen({ onComplete, duration = 2500 }: SplashScre
                     : 'opacity-0 translate-y-4'
                     }`}
             >
-                Mental Engraving
+                Train Your Mind
             </p>
         </div>
     );

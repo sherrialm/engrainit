@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const API_KEY = process.env.GOOGLE_AI_API_KEY || '';
 const TIMEOUT_MS = 5000;
-const MODEL_NAME = 'gemini-1.5-flash';
+const MODEL_NAME = 'gemini-2.5-flash';
 
 export async function GET() {
     const start = Date.now();
@@ -52,9 +52,9 @@ export async function GET() {
         const msg = err.message || 'Unknown error';
         const errorType =
             msg.includes('429') ? 'quota_exceeded' :
-            msg.includes('403') ? 'forbidden' :
-            msg.includes('404') ? 'model_not_found' :
-            'unknown';
+                msg.includes('403') ? 'forbidden' :
+                    msg.includes('404') ? 'model_not_found' :
+                        'unknown';
 
         console.error('[AI Health] Gemini error:', errorType, msg.slice(0, 100));
 
@@ -76,11 +76,11 @@ async function testGemini(): Promise<string> {
 
     try {
         const model = genAI.getGenerativeModel({
-            model: 'models/gemini-1.5-flash-latest',
+            model: 'gemini-2.5-flash',
         });
 
         const result = await model.generateContent('Reply with OK');
-        console.log('[AI Health] Success with gemini-1.5-flash-latest');
+        console.log('[AI Health] Success with gemini-2.5-flash');
         return result.response.text();
     } catch (err: any) {
         console.log('[AI Health] failed:', err.message?.slice(0, 80));

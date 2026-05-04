@@ -5,9 +5,9 @@ import ConsentBanner from '@/components/ConsentBanner';
 import PWARegister from '@/components/PWARegister';
 
 export const metadata: Metadata = {
-    title: 'EngrainIt - Mental Engraving through Intentional Repetition',
-    description: 'Transform spoken, typed, or uploaded content into rhythmic mental imprints for memorization, habit-shifting, and spiritual centering.',
-    keywords: ['memorization', 'audio loop', 'spaced repetition', 'mental engraving', 'affirmations'],
+    title: 'EngrainIt — Mental Training Through Intelligent Repetition',
+    description: 'Build focus, reinforce identity, and create daily mental training rituals through intelligent repetition. Your mind learns through rhythm — EngrainIt makes it effortless.',
+    keywords: ['mental training', 'daily ritual', 'identity reinforcement', 'focus training', 'intelligent repetition', 'mental engraving', 'affirmations', 'spaced repetition'],
 };
 
 export default function RootLayout({

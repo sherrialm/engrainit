@@ -92,7 +92,7 @@ export default function LoginPage() {
                         </h1>
                     </Link>
                     <p className="text-forest-500 mt-2">
-                        {isSignUp ? 'Create your account' : 'Welcome back'}
+                        {isSignUp ? 'Begin your mental training journey' : 'Continue your practice'}
                     </p>
                 </div>
 

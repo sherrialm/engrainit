@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/tts
@@ -29,29 +30,38 @@ export async function POST(request: NextRequest) {
         const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
         const googleKey = process.env.GOOGLE_CLOUD_TTS_API_KEY;
 
+        // No TTS provider configured — return a proper error, not silent empty audio
+        if (!elevenLabsKey && !googleKey) {
+            logger.warn('TTS', 'No TTS API key configured (ELEVENLABS_API_KEY / GOOGLE_CLOUD_TTS_API_KEY)');
+            return NextResponse.json(
+                { error: 'Voice generation is temporarily unavailable. Please try again later.', code: 'NO_TTS_PROVIDER' },
+                { status: 503 }
+            );
+        }
+
         // Try ElevenLabs first
         if (elevenLabsKey) {
-            console.log('[TTS Route] Trying ElevenLabs...', { chars: text.length });
+            logger.info('TTS', 'Trying ElevenLabs', { chars: text.length });
             try {
                 const result = await elevenLabsTTS(text, voiceId, elevenLabsKey);
-                console.log('[TTS Route] ElevenLabs succeeded');
+                logger.info('TTS', 'ElevenLabs succeeded');
                 return result;
             } catch (elError: unknown) {
                 const msg = elError instanceof Error ? elError.message : 'Unknown';
-                console.warn('[TTS Route] ElevenLabs failed, falling back to Google:', msg);
+                logger.warn('TTS', 'ElevenLabs failed, falling back to Google', msg);
             }
         }
 
         // Fall back to Google TTS
         if (googleKey) {
-            console.log('[TTS Route] Trying Google TTS fallback...', { chars: text.length });
+            logger.info('TTS', 'Trying Google TTS fallback', { chars: text.length });
             try {
                 const result = await googleTTS(text, voiceId, googleKey);
-                console.log('[TTS Route] Google TTS succeeded');
+                logger.info('TTS', 'Google TTS succeeded');
                 return result;
             } catch (gError: unknown) {
                 const msg = gError instanceof Error ? gError.message : 'Unknown';
-                console.error('[TTS Route] Google TTS also failed:', msg);
+                logger.error('TTS', 'Google TTS also failed', msg);
                 return NextResponse.json(
                     { error: 'Audio generation failed. Please try again.', code: 'TTS_ALL_FAILED' },
                     { status: 500 }
@@ -59,20 +69,12 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        if (!elevenLabsKey && !googleKey) {
-            return NextResponse.json({
-                audioContent: '',
-                duration: 0,
-                message: 'No TTS API key configured. Please add ELEVENLABS_API_KEY or GOOGLE_CLOUD_TTS_API_KEY to .env.local',
-            });
-        }
-
         return NextResponse.json(
             { error: 'Audio generation failed. Please try again.', code: 'TTS_ALL_FAILED' },
             { status: 500 }
         );
     } catch (error) {
-        console.error('[TTS Route] Unexpected error:', error);
+        logger.error('TTS', 'Unexpected error', error instanceof Error ? error.message : 'Unknown');
         return NextResponse.json(
             { error: 'Audio generation failed. Please try again.', code: 'INTERNAL_ERROR' },
             { status: 500 }

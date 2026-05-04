@@ -117,12 +117,13 @@ export default function PrivacyPage() {
                             💰 Is EngrainIt Free?
                         </h2>
                         <p className="text-forest-600">
-                            EngrainIt is currently in <strong>early access</strong> and available for free to invited users.
-                            There are no hidden charges, no credit card required, and no premium paywalls.
+                            EngrainIt offers a <strong>free tier</strong> that includes core functionality —
+                            create loops, listen, and build your reinforcement practice at no cost.
                         </p>
                         <p className="text-forest-500 mt-2 text-sm">
-                            As the app grows, premium features may be introduced, but core functionality
-                            will always remain accessible.
+                            A paid <strong>Pro</strong> subscription is available for users who want expanded
+                            limits, additional voices, and advanced features. Core functionality
+                            will always remain accessible on the free tier.
                         </p>
                     </section>
 

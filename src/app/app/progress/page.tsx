@@ -5,15 +5,19 @@
  *
  * Users can add habits and track completion with a visual consistency grid.
  * Milestones at 3, 7, 14, 30 days trigger confetti + jingle.
+ *
+ * Now includes a Morning Ritual section at the top showing the
+ * user's morning streak and last-7-days consistency.
  */
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useHabitStore } from '@/stores/habitStore';
-import { ProgressIcon, PlusIcon, CheckIcon } from '@/components/Icons';
+import { ProgressIcon, PlusIcon, CheckIcon, BriefingIcon } from '@/components/Icons';
 import { computeHabitStreak } from '@/services/HabitService';
 import { playHabitChime, playMilestoneChime } from '@/services/chime';
+import { getMorningStreakInfo, getStreakMessage } from '@/services/morningStreakService';
 import type { Habit, HabitGoalCategory } from '@/types';
 
 const CATEGORY_OPTIONS: { id: HabitGoalCategory; label: string }[] = [
@@ -26,6 +30,8 @@ const CATEGORY_OPTIONS: { id: HabitGoalCategory; label: string }[] = [
 
 const MILESTONE_DAYS = [7, 14, 30];
 
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 export default function ProgressPage() {
     const { user } = useAuthStore();
     const { habits, isLoading, fetchHabits, addHabit, removeHabit, toggleCompletion } = useHabitStore();
@@ -36,10 +42,14 @@ export default function ProgressPage() {
     const [showConfetti, setShowConfetti] = useState(false);
     const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
 
+    // Morning streak
+    const [streakInfo, setStreakInfo] = useState({ currentStreak: 0, totalCompletions: 0, completedToday: false, last7Days: [false, false, false, false, false, false, false] });
+
     useEffect(() => {
         if (user?.uid) {
             fetchHabits(user.uid);
         }
+        setStreakInfo(getMorningStreakInfo());
     }, [user?.uid, fetchHabits]);
 
     // Get last 30 days for grid
@@ -55,6 +65,19 @@ export default function ProgressPage() {
     }, []);
 
     const todayKey = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+    // Get last 7 day labels (actual day names)
+    const last7DayLabels = useMemo(() => {
+        const labels: string[] = [];
+        const today = new Date();
+        const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            labels.push(i === 0 ? '•' : dayNames[d.getDay()]);
+        }
+        return labels;
+    }, []);
 
     async function handleAddHabit() {
         if (!user?.uid || !newHabitName.trim()) return;
@@ -94,6 +117,8 @@ export default function ProgressPage() {
         }
     }
 
+    const streakMessage = getStreakMessage(streakInfo.currentStreak, streakInfo.completedToday);
+
     return (
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
             {/* Confetti Overlay */}
@@ -124,6 +149,61 @@ export default function ProgressPage() {
                     <PlusIcon className="w-5 h-5" />
                 </button>
             </div>
+
+            {/* ── Morning Ritual Section ────────────────────── */}
+            <section className="bg-gradient-to-br from-parchment-100 to-parchment-200 rounded-xl border border-forest-100 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <BriefingIcon className="w-5 h-5 text-forest-600" />
+                        <h2 className="font-serif text-base font-bold text-forest-700">
+                            Morning Ritual
+                        </h2>
+                    </div>
+                    {streakInfo.currentStreak > 0 && (
+                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+                            🔥 {streakInfo.currentStreak} day{streakInfo.currentStreak !== 1 ? 's' : ''}
+                        </span>
+                    )}
+                </div>
+
+                <p className="text-xs text-forest-500 italic">
+                    {streakMessage}
+                </p>
+
+                {/* Last 7 days row */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-forest-400 w-16 flex-shrink-0">Last 7 days</span>
+                    <div className="flex items-center gap-1.5 flex-1">
+                        {streakInfo.last7Days.map((done, i) => (
+                            <div key={i} className="flex flex-col items-center gap-0.5">
+                                <div
+                                    className={`w-5 h-5 rounded-md flex items-center justify-center ${
+                                        done ? 'bg-forest-600' : 'bg-parchment-300 border border-forest-200'
+                                    }`}
+                                >
+                                    {done && <CheckIcon className="w-3 h-3 text-parchment-100" />}
+                                </div>
+                                <span className="text-[9px] text-forest-400">{last7DayLabels[i]}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {streakInfo.totalCompletions > 0 && (
+                    <p className="text-xs text-forest-400">
+                        {streakInfo.totalCompletions} total morning alignment{streakInfo.totalCompletions !== 1 ? 's' : ''}
+                    </p>
+                )}
+
+                {!streakInfo.completedToday && (
+                    <Link
+                        href="/app/morning"
+                        className="inline-flex items-center gap-2 text-xs font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
+                    >
+                        Start Today&rsquo;s Ritual →
+                    </Link>
+                )}
+            </section>
 
             {/* Add Habit Form */}
             {showAddForm && (

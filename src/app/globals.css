@@ -346,6 +346,22 @@ h6 {
   box-shadow: 0 0 8px rgba(45, 90, 39, 0.3);
 }
 
+/* ── Page transition animation ────────────────────────────── */
+.page-enter {
+  animation: pageEnter 0.2s ease-out;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── AI Status fade-out ────────────────────────────────────── */
 @keyframes fadeOut {
   0%, 70% { opacity: 1; }

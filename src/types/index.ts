@@ -138,14 +138,26 @@ export interface AffirmationRefineResponse {
 
 // ── Loop Generation (AI-guided flow) ──────────────────────────
 
-export type LoopMood = 'calm' | 'focused' | 'stressed' | 'motivated' | 'tired';
+export type LoopMood =
+    | 'calm' | 'anxious' | 'overwhelmed' | 'sad' | 'low-energy'
+    | 'stuck' | 'focused' | 'hopeful' | 'excited' | 'unmotivated';
+
+export type LoopIntent =
+    | 'memorize' | 'learn' | 'gain-clarity' | 'calm-down' | 'build-confidence'
+    | 'improve-focus' | 'reset-thinking' | 'stay-encouraged' | 'prepare-for-day' | 'wind-down';
+
+/** @deprecated Use LoopIntent instead */
 export type LoopGoal = 'start-day' | 'improve-focus' | 'build-confidence' | 'stay-disciplined' | 'reduce-stress';
+/** @deprecated Use LoopIntent instead */
 export type LoopProblem = 'overwhelmed' | 'distracted' | 'low-motivation' | 'negative-thinking';
 
 export interface LoopGenerationInput {
     moods: LoopMood[];
-    goals: LoopGoal[];
-    problems: LoopProblem[];
+    intents: LoopIntent[];
+    /** @deprecated Use intents instead */
+    goals?: LoopGoal[];
+    /** @deprecated Use intents instead */
+    problems?: LoopProblem[];
     details?: string;
 }
 
@@ -201,4 +213,23 @@ export interface Habit {
 export interface HabitEntry {
     date: string; // YYYY-MM-DD
     completed: boolean;
+}
+
+// ── Session System (Phase 2) ─────────────────────────────────
+
+/**
+ * Session type presets
+ */
+export type SessionTypeId = 'morning' | 'midday' | 'focus' | 'evening' | 'custom';
+
+/**
+ * A user-created session — a named playlist of saved loops
+ */
+export interface SavedSession {
+    id: string;
+    name: string;
+    typeId: SessionTypeId;
+    loopIds: string[];          // ordered references to Loop.id
+    createdAt: string;          // ISO string
+    updatedAt: string;          // ISO string
 }
