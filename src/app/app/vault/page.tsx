@@ -9,11 +9,13 @@ import { usePlaylistStore, QueueItem } from '@/stores/playlistStore';
 import { useTierStore } from '@/stores/tierStore';
 import { generateSpeech } from '@/services/TTSService';
 import { uploadBase64Audio } from '@/services/LoopService';
+import { getMorningStreakInfo } from '@/services/morningStreakService';
 import { VOICE_OPTIONS, getVoiceLabel } from '@/config/voices';
 import { Loop, LoopCategory } from '@/types';
 import { formatDuration } from '@/lib/utils';
 import { CardGridSkeleton } from '@/components/Skeleton';
 import { Modal } from '@/components/Modal';
+import PlaybackControls from '@/components/PlaybackControls';
 
 const CATEGORIES: { id: LoopCategory | 'all'; label: string; icon: string }[] = [
     { id: 'all', label: 'All', icon: '📚' },
@@ -59,6 +61,13 @@ export default function VaultPage() {
     // Queue builder state
     const [queueBuilderOn, setQueueBuilderOn] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Morning completion check for returning-user prompt
+    const [morningDone, setMorningDone] = useState(true); // default true to avoid flash
+    useEffect(() => {
+        const streak = getMorningStreakInfo();
+        setMorningDone(streak.completedToday);
+    }, []);
 
     const handleEdit = (loop: Loop) => {
         setEditingLoop(loop);
@@ -219,14 +228,28 @@ export default function VaultPage() {
                     The Vault
                 </h2>
                 <p className="text-forest-500">
-                    Your library of mental imprints
+                    Your Saved Loops
                 </p>
                 <Link href="/app" className="inline-block mt-3 text-sm text-forest-500 hover:text-forest-700 font-medium">
                     ✍️ ← Create a New Loop
                 </Link>
             </div>
 
-            {/* Queue Mode Toggle */}
+            {/* Returning-user prompt — shown when user has loops but hasn't practiced today */}
+            {!isLoading && filteredLoops.length > 0 && !morningDone && (
+                <div className="bg-forest-50 border border-forest-200 rounded-xl px-5 py-3 mb-6 flex items-center justify-between gap-4">
+                    <p className="text-sm text-forest-600">
+                        Your loops are waiting — start a session or play one now.
+                    </p>
+                    <Link
+                        href="/app/session"
+                        className="flex-shrink-0 text-xs font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 px-4 py-2 rounded-full transition-colors"
+                    >
+                        Start a Session →
+                    </Link>
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -239,7 +262,7 @@ export default function VaultPage() {
                             }}
                             className="accent-forest-600"
                         />
-                        <span className="text-sm font-medium text-forest-700">📋 Queue Mode</span>
+                        <span className="text-sm font-medium text-forest-700">📋 Play Multiple</span>
                     </label>
                 </div>
 
@@ -304,7 +327,7 @@ export default function VaultPage() {
                     <p className="text-forest-400 mb-6">
                         Create your first loop to start engraving it in your mind.
                     </p>
-                    <a href="/app" className="btn-primary inline-block">
+                    <a href="/app/generate" className="btn-primary inline-block">
                         Create a Loop
                     </a>
                 </div>
@@ -601,6 +624,9 @@ function LoopCard({
                 <span>🕐 {formatDuration(loop.duration)}</span>
                 <span>🔁 {loop.intervalSeconds}s interval</span>
                 <span>▶️ {loop.playCount} plays</span>
+                {loop.voiceId && (
+                    <span>🎙️ {getVoiceLabel(loop.voiceId)}</span>
+                )}
             </div>
 
             {/* Actions */}
@@ -647,7 +673,7 @@ function NowPlayingBar({
     onToggle: () => void;
     onStop: () => void;
 }) {
-    const { currentTime, duration, intervalRemaining } = useAudioStore();
+    const { currentTime, duration, intervalRemaining, repeatCount, currentRepeat } = useAudioStore();
 
     return (
         <div className={`fixed bottom-0 left-0 right-0 bg-parchment-100 border-t border-forest-200 p-4 shadow-lg ${isPlaying ? 'glow-pulse' : ''}`}>
@@ -665,6 +691,16 @@ function NowPlayingBar({
                             </span>
                         )}
                     </p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                        {loop.voiceId && (
+                            <span className="text-xs text-forest-400">🎙️ {getVoiceLabel(loop.voiceId)}</span>
+                        )}
+                        {repeatCount !== null && currentRepeat > 0 && (
+                            <span className="text-xs text-amber-600 font-semibold">
+                                Play {currentRepeat} of {repeatCount}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Controls */}

@@ -1,27 +1,25 @@
 'use client';
 
 /**
- * Home Hub — Soft-Launch Dashboard
+ * Home Hub — Phase 3: Simplified Dashboard
  *
  * Layout (top to bottom):
  *   1. Greeting + Tagline
  *   2. Three Primary Actions (Session, Loop, Vault)
- *   3. Today's Practice (returning users — streak & daily status)
- *   4. Daily Briefing
- *   5. Suggested for You
- *   6. Recent Loops
- *   7. Secondary Action Cards
+ *   3. Daily Briefing
+ *   4. Today (returning users — streak & daily status)
+ *   5. Recent Loops (max 3 + View All)
+ *   6. How EngrainIt Works (explainer cards)
  */
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
-import { useVaultStore, usePinnedLoops } from '@/stores/vaultStore';
-import { useTierStore } from '@/stores/tierStore';
+import { useVaultStore } from '@/stores/vaultStore';
 import { useAudioStore } from '@/stores/audioStore';
 import {
-    LoopIcon, SessionIcon, MemoryIcon, VaultIcon, ProgressIcon,
-    BriefingIcon, PlayIcon, RefreshIcon, PinFilledIcon, CheckIcon,
+    LoopIcon, SessionIcon, VaultIcon,
+    BriefingIcon, PlayIcon, RefreshIcon, CheckIcon,
 } from '@/components/Icons';
 
 // Inline PauseIcon and SpinnerIcon for playback states
@@ -146,8 +144,6 @@ function getSuggestions(loops: Loop[]): Suggestion[] {
 export default function AppDashboard() {
     const { user } = useAuthStore();
     const { loops, fetchLoops, addLoop, isLoading: vaultLoading, error: vaultError, clearError: clearVaultError } = useVaultStore();
-    const pinnedLoops = usePinnedLoops();
-    const { tier } = useTierStore();
     const { loadAndPlay, isLoading, loadingLoopId, loadError, isPlaying, currentLoop, pause } = useAudioStore();
 
     // Briefing state
@@ -191,8 +187,6 @@ export default function AppDashboard() {
             .slice(0, 3);
     }, [loops]);
 
-    // Smart resurfacing — distinctly different from recent
-    const suggestions = useMemo(() => getSuggestions(loops), [loops]);
 
     async function loadCachedBriefing(uid: string) {
         const todayKey = getTodayKey();
@@ -256,45 +250,6 @@ export default function AppDashboard() {
         }
     }
 
-    // ── Secondary Action Cards ────────────────────────────────
-
-    const actions = [
-        {
-            id: 'generate',
-            label: 'Generate Loop',
-            description: 'Create a personalized training loop',
-            icon: LoopIcon,
-            href: '/app/generate',
-        },
-        {
-            id: 'session',
-            label: 'Start Session',
-            description: 'Focus session with your loops',
-            icon: SessionIcon,
-            href: '/app/session',
-        },
-        {
-            id: 'remember',
-            label: 'Remember Something',
-            description: 'Memorize with intelligent repetition',
-            icon: MemoryIcon,
-            href: '/app/remember',
-        },
-        {
-            id: 'vault',
-            label: 'My Loops',
-            description: `${loops.length} saved loop${loops.length === 1 ? '' : 's'}`,
-            icon: VaultIcon,
-            href: '/app/vault',
-        },
-        {
-            id: 'progress',
-            label: 'Progress',
-            description: 'Habits & consistency tracking',
-            icon: ProgressIcon,
-            href: '/app/progress',
-        },
-    ];
 
     const streakMessage = getStreakMessage(streakInfo.currentStreak, streakInfo.completedToday);
 
@@ -341,7 +296,7 @@ export default function AppDashboard() {
                 >
                     <SessionIcon className="w-8 h-8 text-parchment-100 group-hover:scale-110 transition-transform" />
                     <span className="font-serif text-base font-bold">Start a Session</span>
-                    <span className="text-xs text-parchment-300">Play your saved loops</span>
+                    <span className="text-xs text-parchment-300">Play a saved playlist of loops.</span>
                 </Link>
 
                 <Link
@@ -351,7 +306,7 @@ export default function AppDashboard() {
                 >
                     <LoopIcon className="w-8 h-8 text-parchment-100 group-hover:scale-110 transition-transform" />
                     <span className="font-serif text-base font-bold">Create a Loop</span>
-                    <span className="text-xs text-parchment-300">Build a new loop</span>
+                    <span className="text-xs text-parchment-300">Turn a thought, goal, or truth into a repeatable audio loop.</span>
                 </Link>
 
                 <Link
@@ -361,7 +316,7 @@ export default function AppDashboard() {
                 >
                     <VaultIcon className="w-8 h-8 text-parchment-100 group-hover:scale-110 transition-transform" />
                     <span className="font-serif text-base font-bold">Open Vault</span>
-                    <span className="text-xs text-parchment-300">Your saved loops</span>
+                    <span className="text-xs text-parchment-300">View and manage your saved loops.</span>
                 </Link>
             </section>
 
@@ -393,69 +348,9 @@ export default function AppDashboard() {
                 </Link>
             )}
 
-            {/* ── Today's Practice — returning users only ────── */}
-            {!isFirstRun && (
-                <section className="bg-gradient-to-br from-parchment-100 to-parchment-200 rounded-2xl border border-forest-100 p-5 space-y-3" id="todays-practice">
-                    <div className="flex items-center justify-between">
-                        <h2 className="font-serif text-lg font-bold text-forest-700">
-                            Today&rsquo;s Practice
-                        </h2>
-                        {streakInfo.currentStreak > 0 && (
-                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
-                                🔥 {streakInfo.currentStreak} day{streakInfo.currentStreak !== 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
 
-                    {/* Daily checklist */}
-                    <div className="flex items-center gap-4">
-                        <div className={`flex items-center gap-2 text-sm ${morningDone ? 'text-green-700' : 'text-forest-400'}`}>
-                            {morningDone ? (
-                                <CheckIcon className="w-4 h-4 text-green-600" />
-                            ) : (
-                                <span className="w-4 h-4 rounded-full border-2 border-forest-300 inline-block" />
-                            )}
-                            <span>Morning Ritual</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-forest-400">
-                            <span className="w-4 h-4 rounded-full border-2 border-forest-300 inline-block" />
-                            <span>{loops.length} loop{loops.length !== 1 ? 's' : ''} ready</span>
-                        </div>
-                    </div>
 
-                    {/* Streak message */}
-                    <p className="text-xs text-forest-500 italic">
-                        {streakMessage}
-                    </p>
-
-                    {/* CTA */}
-                    {!morningDone ? (
-                        <Link
-                            href="/app/morning"
-                            className="inline-flex items-center gap-2 text-sm font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
-                        >
-                            Start Morning Ritual →
-                        </Link>
-                    ) : (
-                        <div className="flex gap-2">
-                            <Link
-                                href="/app/session"
-                                className="inline-flex items-center gap-2 text-sm font-medium bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
-                            >
-                                Continue with a Session
-                            </Link>
-                            <Link
-                                href="/app/progress"
-                                className="inline-flex items-center gap-2 text-sm font-medium bg-parchment-300 text-forest-600 hover:bg-parchment-400 transition-colors px-4 py-2 rounded-full"
-                            >
-                                View Progress
-                            </Link>
-                        </div>
-                    )}
-                </section>
-            )}
-
-            {/* ── Daily Briefing Card (high in hierarchy) ── */}
+            {/* ── Daily Briefing ─────────────────────────────── */}
             <section className="bg-parchment-100 rounded-xl border border-forest-100 p-5 space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -473,6 +368,10 @@ export default function AppDashboard() {
                         <RefreshIcon className={`w-4 h-4 ${isBriefingLoading ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
+
+                <p className="text-xs text-forest-400">
+                    Your daily briefing gives you a quick mental alignment for today.
+                </p>
 
                 {briefingText ? (
                     <>
@@ -534,67 +433,71 @@ export default function AppDashboard() {
                 )}
             </section>
 
-            {/* ── Suggested for You — returning users, distinct from recent ──── */}
-            {!isFirstRun && suggestions.length > 0 && (
-                <section className="space-y-3">
-                    <div>
-                        <h2 className="font-serif text-sm font-bold text-forest-700 uppercase tracking-wide">
-                            Suggested for You
+            {/* ── Today — returning users only ────────────────── */}
+            {!isFirstRun && (
+                <section className="bg-gradient-to-br from-parchment-100 to-parchment-200 rounded-2xl border border-forest-100 p-5 space-y-3" id="todays-practice">
+                    <div className="flex items-center justify-between">
+                        <h2 className="font-serif text-lg font-bold text-forest-700">
+                            Today
                         </h2>
-                        <p className="text-xs text-forest-400 mt-0.5">
-                            Loops you haven't played recently or match your current time of day
-                        </p>
+                        {streakInfo.currentStreak > 0 && (
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+                                🔥 {streakInfo.currentStreak} day{streakInfo.currentStreak !== 1 ? 's' : ''}
+                            </span>
+                        )}
                     </div>
-                    <div className="space-y-2">
-                        {suggestions.map(({ loop, reason }) => {
-                            const isThisLoading = isLoading && loadingLoopId === loop.id;
-                            const isThisPlaying = isPlaying && currentLoop?.id === loop.id;
-                            const isPlayable = !!(loop.audioUrl || loop.text);
 
-                            return (
-                            <div
-                                key={loop.id}
-                                className={`bg-parchment-100/60 rounded-lg border border-dashed p-3 flex items-center justify-between transition-colors ${
-                                    isThisPlaying ? 'border-forest-500 bg-forest-50' : 'border-forest-200'
-                                }`}
-                            >
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-medium text-forest-700 truncate">
-                                        {loop.title}
-                                    </h4>
-                                    <p className="text-xs text-amber-600 mt-0.5">
-                                        {isThisPlaying ? 'Now playing' : reason}
-                                    </p>
-                                </div>
-                                {isPlayable ? (
-                                    <button
-                                        onClick={() => isThisPlaying ? pause() : loadAndPlay(loop)}
-                                        disabled={isThisLoading}
-                                        className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                                            isThisPlaying
-                                                ? 'bg-forest-700 text-parchment-100'
-                                                : 'bg-parchment-300 text-forest-600 hover:bg-forest-700 hover:text-parchment-100'
-                                        } disabled:opacity-50`}
-                                        title={isThisPlaying ? 'Pause' : isThisLoading ? 'Loading...' : 'Play loop'}
-                                    >
-                                        {isThisLoading ? (
-                                            <SpinnerIcon className="w-4 h-4" />
-                                        ) : isThisPlaying ? (
-                                            <PauseIcon className="w-4 h-4" />
-                                        ) : (
-                                            <PlayIcon className="w-4 h-4" />
-                                        )}
-                                    </button>
-                                ) : (
-                                    <span className="text-[10px] text-forest-400 px-2">No audio</span>
-                                )}
-                            </div>
-                        )})}
+                    {/* Daily checklist */}
+                    <div className="flex items-center gap-4">
+                        <div className={`flex items-center gap-2 text-sm ${morningDone ? 'text-green-700' : 'text-forest-400'}`}>
+                            {morningDone ? (
+                                <CheckIcon className="w-4 h-4 text-green-600" />
+                            ) : (
+                                <span className="w-4 h-4 rounded-full border-2 border-forest-300 inline-block" />
+                            )}
+                            <span>Daily Alignment</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-forest-400">
+                            <span className="w-4 h-4 rounded-full border-2 border-forest-300 inline-block" />
+                            <span>{loops.length} loop{loops.length !== 1 ? 's' : ''} ready</span>
+                        </div>
                     </div>
+
+                    {/* Streak message */}
+                    <p className="text-xs text-forest-500 italic">
+                        {streakMessage}
+                    </p>
+
+                    {/* CTA */}
+                    {!morningDone ? (
+                        <Link
+                            href="/app/session"
+                            className="inline-flex items-center gap-2 text-sm font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
+                        >
+                            Start Daily Alignment →
+                        </Link>
+                    ) : (
+                        <div className="flex gap-2">
+                            <Link
+                                href="/app/session"
+                                className="inline-flex items-center gap-2 text-sm font-medium bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
+                            >
+                                Continue with a Session
+                            </Link>
+                            <Link
+                                href="/app/progress"
+                                className="inline-flex items-center gap-2 text-sm font-medium bg-parchment-300 text-forest-600 hover:bg-parchment-400 transition-colors px-4 py-2 rounded-full"
+                            >
+                                View Progress
+                            </Link>
+                        </div>
+                    )}
                 </section>
             )}
 
-            {/* ── Recent Loops — distinct from suggestions ───────────────── */}
+
+
+            {/* ── Recent Loops ──────────────────────────────── */}
             {!isFirstRun && recentLoops.length > 0 && (
                 <section className="space-y-3">
                     <div>
@@ -670,32 +573,44 @@ export default function AppDashboard() {
                             {loadError}
                         </p>
                     )}
+
+                    <Link
+                        href="/app/vault"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-forest-500 hover:text-forest-700 transition-colors"
+                    >
+                        View All in Vault →
+                    </Link>
                 </section>
             )}
 
-            {/* ── Secondary Action Cards ──────────────────────── */}
-            <section className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {actions.map((action) => {
-                    const Icon = action.icon;
-                    return (
-                        <Link
-                            key={action.id}
-                            href={action.href}
-                            className="action-card flex flex-col items-center text-center gap-3"
-                            id={`action-${action.id}`}
-                        >
-                            <Icon className="w-8 h-8 text-forest-700" />
-                            <div>
-                                <h3 className="font-serif text-sm font-bold text-forest-700">
-                                    {action.label}
-                                </h3>
-                                <p className="text-xs text-forest-400 mt-0.5">
-                                    {action.description}
-                                </p>
-                            </div>
-                        </Link>
-                    );
-                })}
+            {/* ── How EngrainIt Works ─────────────────────────── */}
+            <section className="space-y-3 pt-2">
+                <h2 className="font-serif text-sm font-bold text-forest-700 uppercase tracking-wide text-center">
+                    How EngrainIt Works
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-parchment-100 rounded-xl border border-forest-100 p-4 text-center space-y-1.5">
+                        <span className="text-2xl">🔁</span>
+                        <h3 className="font-serif text-sm font-bold text-forest-700">Loop</h3>
+                        <p className="text-xs text-forest-500 leading-relaxed">
+                            A short repeatable message designed to train your thinking.
+                        </p>
+                    </div>
+                    <div className="bg-parchment-100 rounded-xl border border-forest-100 p-4 text-center space-y-1.5">
+                        <span className="text-2xl">📋</span>
+                        <h3 className="font-serif text-sm font-bold text-forest-700">Session</h3>
+                        <p className="text-xs text-forest-500 leading-relaxed">
+                            A playlist of saved loops that plays in order and repeats.
+                        </p>
+                    </div>
+                    <div className="bg-parchment-100 rounded-xl border border-forest-100 p-4 text-center space-y-1.5">
+                        <span className="text-2xl">🗃️</span>
+                        <h3 className="font-serif text-sm font-bold text-forest-700">Vault</h3>
+                        <p className="text-xs text-forest-500 leading-relaxed">
+                            Your library of saved loops.
+                        </p>
+                    </div>
+                </div>
             </section>
         </div>
     );
