@@ -4,6 +4,7 @@ import { AudioEngine, getAudioEngine } from '@/services/AudioEngine';
 import { BackgroundAudioEngine } from '@/services/BackgroundAudioEngine';
 import { generateSpeech } from '@/services/TTSService';
 import { SpacedRepetitionController } from '@/services/SpacedRepetitionController';
+import { usePlaylistStore } from './playlistStore';
 import { AMBIENCE_TRACKS } from '@/config/ambience';
 
 // Module-level cancellation token: incremented on each loadAndPlay call
@@ -30,6 +31,10 @@ interface AudioState extends PlaybackState {
     // Master volume state
     masterVolume: number;
 
+    // Repeat count tracking
+    repeatCount: number | null; // null = infinite
+    currentRepeat: number;
+
     // Fade-in-progress flag (NightSession)
     fadeInProgress: boolean;
 
@@ -45,6 +50,7 @@ interface AudioState extends PlaybackState {
     setInterval: (seconds: number) => void;
     setVolume: (volume: number) => void;
     setMasterVolume: (v: number) => void;
+    setRepeatCount: (n: number | null) => void;
     startSpacedRepetition: () => void;
     stopSpacedRepetition: () => void;
     setFadeInProgress: (active: boolean) => void;
@@ -78,6 +84,10 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     // Master volume
     masterVolume: 1,
 
+    // Repeat count
+    repeatCount: null,
+    currentRepeat: 0,
+
     // Fade protection
     fadeInProgress: false,
 
@@ -106,6 +116,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
         controller.onStateChange = (isActive, isPlaying, intervalRemaining) => {
             set({ isPlaying, isPaused: !isPlaying, intervalRemaining });
+        };
+
+        controller.onLoopComplete = (loopCount, maxRepeats) => {
+            set({ currentRepeat: loopCount });
+        };
+
+        // When all repeats for a loop are done, advance the queue
+        controller.onSessionComplete = () => {
+            usePlaylistStore.getState().onQueueLoopFinished();
         };
 
         // Initialize background engine on same AudioContext
@@ -196,11 +215,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 loadError: null,
             });
 
-            // Sync interval
+            // Sync interval and repeat count
             if (get().spacedController) {
                 get().spacedController!.setInterval(loop.intervalSeconds);
+                get().spacedController!.setMaxRepeats(get().repeatCount);
             }
 
+            set({ currentRepeat: 0 });
             engine.play();
 
             // Start background if enabled
@@ -293,7 +314,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         get().audioEngine?.stop();
         get().spacedController?.stop();
         get().stopBackground();
-        set({ currentTime: 0, intervalRemaining: null });
+        set({ currentLoop: null, isPlaying: false, isPaused: false, currentTime: 0, duration: 0, intervalRemaining: null });
     },
 
     toggle: () => {
@@ -322,6 +343,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
     setVolume: (volume: number) => {
         get().audioEngine?.setVolume(volume);
+    },
+
+    setRepeatCount: (n: number | null) => {
+        set({ repeatCount: n, currentRepeat: 0 });
+        const { spacedController } = get();
+        if (spacedController) {
+            spacedController.setMaxRepeats(n);
+        }
     },
 
     setMasterVolume: (v: number) => {

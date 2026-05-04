@@ -268,7 +268,7 @@ export default function VaultPage() {
 
                 {queueBuilderOn && (
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-forest-500">Dwell:</span>
+                        <span className="text-xs text-forest-500">Time per loop:</span>
                         {DWELL_PRESETS.map((p) => (
                             <button
                                 key={p.value}
@@ -322,10 +322,15 @@ export default function VaultPage() {
                 <div className="text-center py-16">
                     <div className="text-6xl mb-4">🗃️</div>
                     <h3 className="font-serif text-xl font-semibold text-forest-600 mb-2">
-                        {selectedCategory === 'all' ? 'No loops yet' : `No ${selectedCategory} loops`}
+                        {selectedCategory === 'all' ? 'Your Vault is empty' : `No ${selectedCategory} loops yet`}
                     </h3>
-                    <p className="text-forest-400 mb-6">
-                        Create your first loop to start engraving it in your mind.
+                    <p className="text-forest-400 mb-2">
+                        {selectedCategory === 'all'
+                            ? 'Create your first loop to start building your practice.'
+                            : `You don\u2019t have any ${selectedCategory} loops yet. Create one to get started.`}
+                    </p>
+                    <p className="text-xs text-forest-400 mb-6">
+                        A loop is a short, repeatable message designed to train your thinking.
                     </p>
                     <a href="/app/generate" className="btn-primary inline-block">
                         Create a Loop
@@ -508,7 +513,7 @@ export default function VaultPage() {
                         <span className="text-sm font-medium">
                             📋 Selected: {selectedIds.size} loop{selectedIds.size !== 1 ? 's' : ''}
                             {dwellSec > 0 && <span className="text-parchment-300 ml-2">• {dwellSec >= 60 ? `${dwellSec / 60}m` : `${dwellSec}s`} per loop</span>}
-                            {dwellSec === 0 && <span className="text-parchment-300 ml-2">• Manual advance</span>}
+                            {dwellSec === 0 && <span className="text-parchment-300 ml-2">• Manual next</span>}
                         </span>
                         <div className="flex gap-2">
                             <button
@@ -521,7 +526,7 @@ export default function VaultPage() {
                                 onClick={handleStartQueue}
                                 className="px-4 py-2 text-xs font-bold bg-amber-500 text-forest-900 rounded-lg hover:bg-amber-400"
                             >
-                                ▶️ Start Queue
+                                ▶️ Play Selected
                             </button>
                         </div>
                     </div>
@@ -747,6 +752,7 @@ function QueueNowPlayingBar({
     dwellSec: number;
 }) {
     const { currentTime, duration } = useAudioStore();
+    const { dwellRemaining } = usePlaylistStore();
     const current = queue[queueIndex];
 
     if (!current) return null;
@@ -761,13 +767,16 @@ function QueueNowPlayingBar({
                     </p>
                     <p className="text-sm text-parchment-300">
                         {formatDuration(currentTime)} / {formatDuration(duration)}
-                        {dwellSec > 0 && (
+                        {dwellRemaining !== null && dwellRemaining > 0 ? (
+                            <span className="ml-3 text-parchment-200 font-medium">
+                                Auto-next in {dwellRemaining}s
+                            </span>
+                        ) : dwellSec > 0 ? (
                             <span className="ml-3 text-parchment-400">
                                 Auto-next: {dwellSec >= 60 ? `${dwellSec / 60}m` : `${dwellSec}s`}
                             </span>
-                        )}
-                        {dwellSec === 0 && (
-                            <span className="ml-3 text-parchment-400">Manual advance</span>
+                        ) : (
+                            <span className="ml-3 text-parchment-400">Manual next</span>
                         )}
                     </p>
                 </div>

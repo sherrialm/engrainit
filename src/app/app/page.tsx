@@ -50,6 +50,14 @@ function getTodayKey() {
     return new Date().toISOString().split('T')[0];
 }
 
+function getTimeGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Start your morning alignment.';
+    if (hour >= 12 && hour < 17) return 'Reset your focus.';
+    if (hour >= 17 && hour < 21) return 'Wind down with intention.';
+    return 'Settle your mind before rest.';
+}
+
 function formatBriefingDate() {
     return new Date().toLocaleDateString(undefined, {
         month: 'long',
@@ -296,7 +304,7 @@ export default function AppDashboard() {
                 >
                     <SessionIcon className="w-8 h-8 text-parchment-100 group-hover:scale-110 transition-transform" />
                     <span className="font-serif text-base font-bold">Start a Session</span>
-                    <span className="text-xs text-parchment-300">Play a saved playlist of loops.</span>
+                    <span className="text-xs text-parchment-300">Sessions are saved playlists of loops you can replay anytime.</span>
                 </Link>
 
                 <Link
@@ -470,12 +478,17 @@ export default function AppDashboard() {
 
                     {/* CTA */}
                     {!morningDone ? (
-                        <Link
-                            href="/app/session"
-                            className="inline-flex items-center gap-2 text-sm font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
-                        >
-                            Start Daily Alignment →
-                        </Link>
+                        <>
+                            <p className="text-sm text-forest-500 font-medium">
+                                {getTimeGreeting()}
+                            </p>
+                            <Link
+                                href="/app/session"
+                                className="inline-flex items-center gap-2 text-sm font-semibold bg-forest-700 text-parchment-100 hover:bg-forest-600 transition-colors px-4 py-2 rounded-full"
+                            >
+                                Start Daily Alignment →
+                            </Link>
+                        </>
                     ) : (
                         <div className="flex gap-2">
                             <Link

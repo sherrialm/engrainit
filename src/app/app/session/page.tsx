@@ -133,7 +133,7 @@ export default function SessionPage() {
     const { loops, fetchLoops } = useVaultStore();
     const { currentLoop, isPlaying, repeatCount, currentRepeat } = useAudioStore();
     const {
-        queue, queueIndex, isQueueMode,
+        queue, queueIndex, isQueueMode, dwellRemaining,
         setQueue, startQueue, stopQueue, nextInQueue, prevInQueue,
         setQueueMode, setDwellSec, dwellSec,
     } = usePlaylistStore();
@@ -316,14 +316,17 @@ export default function SessionPage() {
                     {/* No loops in vault — soft block */}
                     {!hasLoops && (
                         <div className="bg-parchment-100 rounded-xl border border-forest-100 p-6 text-center space-y-3">
-                            <p className="text-sm text-forest-500">
-                                Create or save loops to your Vault before building a session.
+                            <p className="text-sm text-forest-600 font-medium">
+                                Your Vault is empty — create a loop first, then come back to build a session.
+                            </p>
+                            <p className="text-xs text-forest-400">
+                                A loop is a short, repeatable message designed to train your thinking.
                             </p>
                             <Link
                                 href="/app/generate"
                                 className="inline-flex items-center gap-2 text-sm font-semibold text-parchment-100 bg-forest-700 hover:bg-forest-600 transition-colors px-5 py-2.5 rounded-full"
                             >
-                                Create a Loop →
+                                Create Your First Loop →
                             </Link>
                         </div>
                     )}
@@ -420,11 +423,11 @@ export default function SessionPage() {
                             {/* Empty state for sessions (has loops, no sessions) */}
                             {sessions.length === 0 && (
                                 <div className="bg-parchment-100 rounded-xl border border-dashed border-forest-200 p-6 text-center space-y-2">
-                                    <p className="text-sm text-forest-500">
+                                    <p className="text-sm text-forest-600 font-medium">
                                         You haven&rsquo;t created any sessions yet.
                                     </p>
                                     <p className="text-xs text-forest-400">
-                                        Pick a session type below to get started.
+                                        Choose a type below to build your first playlist of loops.
                                     </p>
                                 </div>
                             )}
@@ -721,11 +724,15 @@ export default function SessionPage() {
                     <div className="space-y-1">
                         <p className="text-xs text-forest-400 mb-2">
                             Loops play in order and repeat continuously.
-                            {dwellSec > 0 && (
+                            {dwellRemaining !== null && dwellRemaining > 0 ? (
+                                <span className="ml-1 text-forest-600 font-semibold">
+                                    Auto-next in {dwellRemaining}s
+                                </span>
+                            ) : dwellSec > 0 ? (
                                 <span className="ml-1 text-forest-500 font-medium">
                                     Auto-next every {dwellSec >= 60 ? `${Math.floor(dwellSec / 60)}m` : `${dwellSec}s`}.
                                 </span>
-                            )}
+                            ) : null}
                         </p>
                         {queue.map((item, i) => (
                             <div
