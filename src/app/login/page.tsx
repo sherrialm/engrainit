@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -18,8 +18,17 @@ export default function LoginPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [resetSent, setResetSent] = useState(false);
 
-    const { signIn, signUp, isLoading, error, clearError } = useAuthStore();
+    const { user, signIn, signUp, isLoading, error, clearError } = useAuthStore();
     const router = useRouter();
+
+    // If already authenticated (e.g. auth state restored from persistence),
+    // redirect away from login immediately
+    useEffect(() => {
+        if (user) {
+            const hasSeenOnboarding = localStorage.getItem('engrainit_onboarding_complete');
+            router.replace(hasSeenOnboarding ? '/app' : '/onboarding');
+        }
+    }, [user, router]);
 
     const handleForgotPassword = async () => {
         if (!email.trim()) {
@@ -51,12 +60,12 @@ export default function LoginPage() {
             if (isSignUp) {
                 await signUp(email, password);
                 // New users go to onboarding
-                router.push('/onboarding');
+                router.replace('/onboarding');
             } else {
                 await signIn(email, password);
                 // Returning users check if they've seen onboarding
                 const hasSeenOnboarding = localStorage.getItem('engrainit_onboarding_complete');
-                router.push(hasSeenOnboarding ? '/app' : '/onboarding');
+                router.replace(hasSeenOnboarding ? '/app' : '/onboarding');
             }
         } catch {
             // Error is handled in store

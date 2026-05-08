@@ -38,8 +38,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     signIn: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
-            set({ isLoading: false });
+            const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+            // Set user immediately so navigation guards see it before onAuthStateChanged fires
+            set({ isLoading: false, user: credential.user, isInitialized: true });
         } catch (err: any) {
             set({
                 isLoading: false,
@@ -52,8 +53,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     signUp: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-            await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
-            set({ isLoading: false });
+            const credential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
+            // Set user immediately so navigation guards see it before onAuthStateChanged fires
+            set({ isLoading: false, user: credential.user, isInitialized: true });
         } catch (err: any) {
             set({
                 isLoading: false,

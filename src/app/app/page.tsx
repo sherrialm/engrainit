@@ -40,6 +40,7 @@ function SpinnerIcon({ className }: { className?: string }) {
     );
 }
 import { generateBriefing } from '@/services/AIService';
+import { generateSpeech } from '@/services/TTSService';
 import { getCachedBriefing, saveBriefing } from '@/services/BriefingService';
 import { getMorningStreakInfo, getStreakMessage } from '@/services/morningStreakService';
 import type { Loop, LoopTag } from '@/types';
@@ -254,14 +255,31 @@ export default function AppDashboard() {
         if (!user?.uid || !briefingText || isBriefingSaved) return;
         setIsSavingBriefing(true);
         try {
+            // Pre-synthesize TTS so playback starts instantly
+            let audioUrl = '';
+            let duration = 0;
+            try {
+                const ttsResult = await generateSpeech({
+                    text: briefingText,
+                    voiceId: 'calm-mentor',
+                });
+                if (ttsResult.audioContent) {
+                    audioUrl = ttsResult.audioContent;
+                    duration = ttsResult.duration || 0;
+                }
+            } catch (ttsErr) {
+                console.warn('[Briefing] TTS pre-synthesis failed, saving text-only:', ttsErr);
+                // Falls back to on-demand TTS at play time
+            }
+
             await addLoop(user.uid, {
                 title: `Daily Briefing – ${formatBriefingDate()}`,
                 category: 'vision',
                 sourceType: 'tts',
                 text: briefingText,
-                audioUrl: '',
+                audioUrl,
                 voiceId: 'calm-mentor',
-                duration: 0,
+                duration,
                 intervalSeconds: 180,
                 tags: ['identity', 'briefing'],
             });
@@ -415,7 +433,7 @@ export default function AppDashboard() {
                                     <CheckIcon className="w-3 h-3" /> Saved to Vault
                                 </span>
                             ) : isSavingBriefing ? (
-                                'Saving...'
+                                'Generating audio…'
                             ) : (
                                 'Save as Loop'
                             )}
