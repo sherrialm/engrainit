@@ -154,6 +154,21 @@ export default function AppDashboard() {
     const { loops, fetchLoops, addLoop, isLoading: vaultLoading, error: vaultError, clearError: clearVaultError } = useVaultStore();
     const { loadAndPlay, isLoading, loadingLoopId, loadError, isPlaying, currentLoop, pause } = useAudioStore();
 
+    // Onboarding guide dismissal
+    const [showGuide, setShowGuide] = useState(false);
+
+    useEffect(() => {
+        const dismissed = localStorage.getItem('engrainit_onboarding_guide_dismissed');
+        if (!dismissed) {
+            setShowGuide(true);
+        }
+    }, []);
+
+    function dismissGuide() {
+        localStorage.setItem('engrainit_onboarding_guide_dismissed', 'true');
+        setShowGuide(false);
+    }
+
     // Briefing state
     const [briefingText, setBriefingText] = useState<string | null>(null);
     const [isBriefingLoading, setIsBriefingLoading] = useState(false);

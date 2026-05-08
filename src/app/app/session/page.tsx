@@ -21,7 +21,7 @@ import { usePlaylistStore, QueueItem } from '@/stores/playlistStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import {
     SessionIcon, PlayIcon, PauseIcon, StopIcon, SkipNextIcon, SkipPrevIcon,
-    CheckIcon, PlusIcon, SparklesIcon, TrashIcon,
+    CheckIcon, PlusIcon,
 } from '@/components/Icons';
 import PlaybackControls from '@/components/PlaybackControls';
 import { getVoiceLabel } from '@/config/voices';
@@ -409,7 +409,7 @@ export default function SessionPage() {
                                                                 className="p-2 rounded-lg text-forest-400 hover:bg-red-50 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
                                                                 title="Delete session"
                                                             >
-                                                                <TrashIcon className="w-4 h-4" />
+                                                                <span className="text-sm">Delete</span>
                                                             </button>
                                                         )}
                                                     </div>
@@ -546,11 +546,10 @@ export default function SessionPage() {
                                 {draftLoops.map((loop, i) => (
                                     <div
                                         key={loop.id}
-                                        className={`flex items-center gap-3 rounded-lg p-3 border transition-colors ${
-                                            suggestedLoopIds.has(loop.id)
-                                                ? 'bg-amber-50 border-amber-200'
-                                                : 'bg-parchment-100 border-forest-100'
-                                        }`}
+                                        className={`flex items-center gap-3 rounded-lg p-3 border transition-colors ${suggestedLoopIds.has(loop.id)
+                                            ? 'bg-amber-50 border-amber-200'
+                                            : 'bg-parchment-100 border-forest-100'
+                                            }`}
                                     >
                                         <span className="text-xs text-forest-400 w-5 text-right font-medium">
                                             {i + 1}
@@ -585,7 +584,7 @@ export default function SessionPage() {
                                             className="p-1.5 rounded-lg text-forest-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                                             title="Remove from session"
                                         >
-                                            <TrashIcon className="w-4 h-4" />
+                                            <span className="text-sm">Remove</span>
                                         </button>
                                     </div>
                                 ))}
@@ -600,7 +599,7 @@ export default function SessionPage() {
                             className="flex items-center gap-2 w-full justify-center py-2.5 rounded-xl text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors"
                             id="suggest-loops-btn"
                         >
-                            <SparklesIcon className="w-4 h-4" />
+                            <span className="text-sm">✨</span>
                             Suggest Loops for {getSessionTypeConfig(draft.typeId).label}
                         </button>
                     )}
@@ -737,11 +736,10 @@ export default function SessionPage() {
                         {queue.map((item, i) => (
                             <div
                                 key={item.loopId}
-                                className={`flex items-center gap-3 rounded-lg p-3 border transition-colors ${
-                                    i === queueIndex
-                                        ? 'bg-forest-50 border-forest-300'
-                                        : 'bg-parchment-100 border-forest-100'
-                                }`}
+                                className={`flex items-center gap-3 rounded-lg p-3 border transition-colors ${i === queueIndex
+                                    ? 'bg-forest-50 border-forest-300'
+                                    : 'bg-parchment-100 border-forest-100'
+                                    }`}
                             >
                                 <span className={`text-xs w-5 text-right ${i === queueIndex ? 'text-forest-700 font-bold' : 'text-forest-400'}`}>
                                     {i + 1}
