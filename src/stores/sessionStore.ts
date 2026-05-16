@@ -31,6 +31,9 @@ interface SessionState {
     activeSessionId: string | null;
     draft: DraftSession | null;
 
+    // Hydration — re-read localStorage on the client after SSR
+    hydrate: () => void;
+
     // Draft actions
     startDraft: (typeId: SessionTypeId) => void;
     editSession: (id: string) => void;
@@ -84,6 +87,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     sessions: loadSessions(),
     activeSessionId: null,
     draft: null,
+
+    hydrate: () => {
+        const fromStorage = loadSessions();
+        console.log('[SessionStore] hydrate — found', fromStorage.length, 'sessions in localStorage');
+        set({ sessions: fromStorage });
+    },
 
     // ── Draft actions ─────────────────────────────────────────
 

@@ -2,7 +2,8 @@
  * AudioEngine - Web Audio API wrapper for gapless looping
  * 
  * Uses Web Audio API for precise timing and gapless playback.
- * Falls back to HTMLAudioElement if Web Audio is not available.
+ * Falls back to HTMLAudioElement for voice recordings (webm/opus)
+ * which decodeAudioData() cannot reliably handle.
  */
 
 export class AudioEngine {
@@ -14,6 +15,10 @@ export class AudioEngine {
     private startTime: number = 0;
     private pauseTime: number = 0;
     private targetVolume: number = 1;
+
+    // HTMLAudioElement fallback for voice recordings
+    private htmlAudio: HTMLAudioElement | null = null;
+    private usingHtmlAudio: boolean = false;
 
     // Callbacks
     public onPlayStateChange?: (isPlaying: boolean) => void;
@@ -37,10 +42,15 @@ export class AudioEngine {
     }
 
     /**
-     * Load audio from a URL or base64 data
+     * Load audio from a URL or base64 data using Web Audio API (decodeAudioData).
+     * Best for TTS-generated audio (mp3/wav).
      */
     async loadAudio(source: string): Promise<void> {
         console.log('[AudioEngine] loadAudio called, source length:', source.length);
+
+        // Clean up any prior HTMLAudioElement playback
+        this.disposeHtmlAudio();
+        this.usingHtmlAudio = false;
 
         if (!this.audioContext) {
             console.error('[AudioEngine] AudioContext not initialized');
@@ -71,8 +81,18 @@ export class AudioEngine {
                 // URL
                 console.log('[AudioEngine] Fetching audio from URL...');
                 const response = await fetch(source);
+                if (!response.ok) {
+                    console.error('[AudioEngine] Fetch failed:', response.status, response.statusText);
+                    throw new Error(`Audio fetch failed (${response.status}). The file may have expired or been removed.`);
+                }
+                const contentType = response.headers.get('content-type');
+                console.log('[AudioEngine] Response content-type:', contentType);
                 arrayBuffer = await response.arrayBuffer();
                 console.log('[AudioEngine] Fetched audio, buffer size:', arrayBuffer.byteLength);
+
+                if (arrayBuffer.byteLength === 0) {
+                    throw new Error('Fetched audio is empty (0 bytes).');
+                }
             }
 
             console.log('[AudioEngine] Decoding audio data...');
@@ -85,9 +105,88 @@ export class AudioEngine {
     }
 
     /**
-     * Play the loaded audio in a loop
+     * Load audio using HTMLAudioElement — native browser playback.
+     * Used for voice recordings (webm/opus) which decodeAudioData()
+     * cannot reliably decode across browsers.
+     *
+     * NOTE: We do NOT set crossOrigin on the element. Firebase Storage
+     * download URLs include an access token and don't require (or support)
+     * CORS headers by default.  Setting crossOrigin = 'anonymous' causes
+     * the browser to demand CORS headers, which Firebase won't send,
+     * resulting in MEDIA_ELEMENT_ERROR: Format error.
      */
-    play(): void {
+    async loadAudioAsElement(source: string): Promise<void> {
+        console.log('[AudioEngine] loadAudioAsElement called, source length:', source.length);
+
+        // Stop any Web Audio API playback
+        this.stopSource();
+        this.audioBuffer = null;
+
+        // Clean up previous HTMLAudioElement
+        this.disposeHtmlAudio();
+
+        this.usingHtmlAudio = true;
+
+        // Validate URL before attempting load
+        if (!source || source.length === 0) {
+            throw new Error('Audio source is empty');
+        }
+
+        return new Promise<void>((resolve, reject) => {
+            const audio = new Audio();
+            // Do NOT set crossOrigin — see note above
+            audio.preload = 'auto';
+            audio.loop = true;
+
+            const cleanup = () => {
+                audio.removeEventListener('canplaythrough', onCanPlay);
+                audio.removeEventListener('error', onError);
+            };
+
+            const onCanPlay = () => {
+                cleanup();
+                console.log('[AudioEngine] HTMLAudioElement ready — duration:', audio.duration, 'src length:', source.length);
+                this.htmlAudio = audio;
+
+                // Wire up time update
+                audio.addEventListener('timeupdate', () => {
+                    if (this.isPlaying && this.onTimeUpdate) {
+                        this.onTimeUpdate(audio.currentTime);
+                    }
+                });
+
+                resolve();
+            };
+
+            const onError = () => {
+                cleanup();
+                const errCode = audio.error?.code;
+                const errMsg = audio.error?.message || 'Unknown HTMLAudioElement error';
+                console.error('[AudioEngine] HTMLAudioElement load failed — code:', errCode, 'message:', errMsg, 'src:', source.substring(0, 80));
+                reject(new Error(`Failed to load audio (code ${errCode}): ${errMsg}`));
+            };
+
+            audio.addEventListener('canplaythrough', onCanPlay);
+            audio.addEventListener('error', onError);
+
+            console.log('[AudioEngine] Setting HTMLAudioElement src (first 80 chars):', source.substring(0, 80));
+            audio.src = source;
+            audio.load();
+        });
+    }
+
+    /**
+     * Play the loaded audio.
+     * @param loop — if true (default), the audio loops natively (gapless).
+     *               Pass false when the SpacedRepetitionController manages
+     *               the repeat cycle so native looping doesn't race the timer.
+     */
+    play(loop: boolean = true): void {
+        if (this.usingHtmlAudio) {
+            this.playHtmlAudio();
+            return;
+        }
+
         if (!this.audioContext || !this.audioBuffer || !this.gainNode) {
             console.error('Cannot play: audio not loaded');
             return;
@@ -99,7 +198,7 @@ export class AudioEngine {
         // Create new source node
         this.sourceNode = this.audioContext.createBufferSource();
         this.sourceNode.buffer = this.audioBuffer;
-        this.sourceNode.loop = true;
+        this.sourceNode.loop = loop;
         this.sourceNode.connect(this.gainNode);
 
         // Handle loop event
@@ -130,6 +229,11 @@ export class AudioEngine {
      * Pause playback
      */
     pause(): void {
+        if (this.usingHtmlAudio) {
+            this.pauseHtmlAudio();
+            return;
+        }
+
         if (!this.audioContext || !this.isPlaying) return;
 
         this.pauseTime = this.getCurrentTime();
@@ -143,6 +247,11 @@ export class AudioEngine {
      * Stop playback completely
      */
     stop(): void {
+        if (this.usingHtmlAudio) {
+            this.stopHtmlAudio();
+            return;
+        }
+
         this.stopSource();
         this.pauseTime = 0;
         this.isPlaying = false;
@@ -165,6 +274,10 @@ export class AudioEngine {
      * Get current playback time
      */
     getCurrentTime(): number {
+        if (this.usingHtmlAudio && this.htmlAudio) {
+            return this.htmlAudio.currentTime;
+        }
+
         if (!this.audioContext || !this.audioBuffer) return 0;
 
         if (this.isPlaying) {
@@ -179,6 +292,10 @@ export class AudioEngine {
      * Get audio duration
      */
     getDuration(): number {
+        if (this.usingHtmlAudio && this.htmlAudio) {
+            const d = this.htmlAudio.duration;
+            return isFinite(d) ? d : 0;
+        }
         return this.audioBuffer?.duration || 0;
     }
 
@@ -188,6 +305,11 @@ export class AudioEngine {
     setVolume(volume: number): void {
         const clamped = Math.max(0, Math.min(1, volume));
         this.targetVolume = clamped;
+
+        if (this.usingHtmlAudio && this.htmlAudio) {
+            this.htmlAudio.volume = clamped;
+        }
+
         if (this.gainNode && this.audioContext) {
             this.gainNode.gain.setValueAtTime(clamped, this.audioContext.currentTime);
         }
@@ -208,15 +330,67 @@ export class AudioEngine {
     }
 
     /**
+     * Check if currently using HTMLAudioElement path
+     */
+    getIsUsingHtmlAudio(): boolean {
+        return this.usingHtmlAudio;
+    }
+
+    /**
      * Clean up resources
      */
     dispose(): void {
         this.stop();
+        this.disposeHtmlAudio();
         if (this.audioContext) {
             this.audioContext.close();
             this.audioContext = null;
         }
     }
+
+    // ── HTMLAudioElement playback helpers ──────────────────────
+
+    private playHtmlAudio(): void {
+        if (!this.htmlAudio) {
+            console.error('[AudioEngine] Cannot play: HTMLAudioElement not loaded');
+            return;
+        }
+
+        this.htmlAudio.volume = this.targetVolume;
+        this.htmlAudio.play().then(() => {
+            this.isPlaying = true;
+            this.onPlayStateChange?.(true);
+            console.log('[AudioEngine] HTMLAudioElement playing');
+        }).catch((err) => {
+            console.error('[AudioEngine] HTMLAudioElement play() rejected:', err);
+        });
+    }
+
+    private pauseHtmlAudio(): void {
+        if (!this.htmlAudio) return;
+        this.htmlAudio.pause();
+        this.isPlaying = false;
+        this.onPlayStateChange?.(false);
+    }
+
+    private stopHtmlAudio(): void {
+        if (!this.htmlAudio) return;
+        this.htmlAudio.pause();
+        this.htmlAudio.currentTime = 0;
+        this.isPlaying = false;
+        this.onPlayStateChange?.(false);
+    }
+
+    private disposeHtmlAudio(): void {
+        if (this.htmlAudio) {
+            this.htmlAudio.pause();
+            this.htmlAudio.removeAttribute('src');
+            this.htmlAudio.load(); // release resources
+            this.htmlAudio = null;
+        }
+    }
+
+    // ── Web Audio API helpers ─────────────────────────────────
 
     private stopSource(): void {
         if (this.sourceNode) {

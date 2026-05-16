@@ -230,9 +230,15 @@ export default function VaultPage() {
                 <p className="text-forest-500">
                     Your Saved Loops
                 </p>
-                <Link href="/app" className="inline-block mt-3 text-sm text-forest-500 hover:text-forest-700 font-medium">
-                    ✍️ ← Create a New Loop
-                </Link>
+                <div className="flex items-center justify-center gap-4 mt-3">
+                    <Link href="/app/generate" className="text-sm text-forest-500 hover:text-forest-700 font-medium">
+                        ✍️ Create a Loop
+                    </Link>
+                    <span className="text-forest-300">·</span>
+                    <Link href="/app/record" className="text-sm text-forest-500 hover:text-forest-700 font-medium">
+                        🎙️ Record Voice Loop
+                    </Link>
+                </div>
             </div>
 
             {/* Returning-user prompt — shown when user has loops but hasn't practiced today */}
@@ -626,9 +632,12 @@ function LoopCard({
 
             {/* Stats */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-forest-400 mb-4">
-                <span>🕐 {formatDuration(loop.duration)}</span>
-                <span>🔁 {loop.intervalSeconds}s interval</span>
-                <span>▶️ {loop.playCount} plays</span>
+                {loop.duration > 0 && (
+                    <span>🕐 {formatDuration(loop.duration)}</span>
+                )}
+                {loop.sourceType !== 'recording' && (
+                    <span>🔁 {loop.intervalSeconds}s interval</span>
+                )}
                 {loop.voiceId && (
                     <span>🎙️ {getVoiceLabel(loop.voiceId)}</span>
                 )}

@@ -131,18 +131,18 @@ function suggestLoops(
 export default function SessionPage() {
     const { user } = useAuthStore();
     const { loops, fetchLoops } = useVaultStore();
-    const { currentLoop, isPlaying, repeatCount, currentRepeat } = useAudioStore();
+    const { currentLoop, isPlaying, repeatCount, currentRepeat, isLoading: audioLoading, loadError: audioLoadError } = useAudioStore();
     const {
-        queue, queueIndex, isQueueMode, dwellRemaining,
+        queue, queueIndex, isQueueMode,
         setQueue, startQueue, stopQueue, nextInQueue, prevInQueue,
-        setQueueMode, setDwellSec, dwellSec,
+        setQueueMode,
     } = usePlaylistStore();
     const {
         sessions, draft, activeSessionId,
         startDraft, editSession, setDraftName,
         addLoopToDraft, removeLoopFromDraft, setDraftLoops,
         clearDraft, saveDraft, deleteSavedSession,
-        setActiveSessionId,
+        setActiveSessionId, hydrate,
     } = useSessionStore();
 
     const [isStarted, setIsStarted] = useState(false);
@@ -153,11 +153,25 @@ export default function SessionPage() {
 
     const isBuilding = draft !== null && !isStarted;
 
+    // Hydrate saved sessions from localStorage (SSR initializes with [])
+    useEffect(() => {
+        hydrate();
+    }, [hydrate]);
+
     useEffect(() => {
         if (user?.uid) {
             fetchLoops(user.uid);
         }
     }, [user?.uid, fetchLoops]);
+
+    // Sync local isStarted with queue state — if queue is stopped externally
+    // (e.g. from PlaybackControls Stop button), reset session view
+    useEffect(() => {
+        if (isStarted && !isQueueMode && queue.length === 0) {
+            setIsStarted(false);
+            setActiveSessionId(null);
+        }
+    }, [isQueueMode, queue.length, isStarted, setActiveSessionId]);
 
     // Resolve loop IDs → Loop objects for the draft
     const draftLoops = useMemo(() => {
@@ -239,7 +253,7 @@ export default function SessionPage() {
     }
 
     function startSessionPlayback(loopIds: string[], sessionId: string) {
-        console.log('[SessionPage] startSessionPlayback called', { loopIds, sessionId, loopsAvailable: loops.length, dwellSec });
+        console.log('[SessionPage] startSessionPlayback called', { loopIds, sessionId, loopsAvailable: loops.length });
         const sessionLoops = loopIds
             .map(id => loops.find(l => l.id === id))
             .filter(Boolean) as Loop[];
@@ -259,25 +273,19 @@ export default function SessionPage() {
             loop,
         }));
 
-        // Ensure dwellSec is at least 30s so the session always auto-advances.
-        // The Vault page allows dwellSec=0 ("Manual"), but sessions must cycle.
-        if (dwellSec <= 0) {
-            console.log('[SessionPage] dwellSec was <=0, forcing to 30');
-            setDwellSec(30);
-        }
-
         console.log('[SessionPage] calling setQueue with', items.length, 'items');
         setQueue(items);
         console.log('[SessionPage] calling setQueueMode(true)');
         setQueueMode(true);
         console.log('[SessionPage] calling startQueue');
         startQueue();
-        console.log('[SessionPage] session started, dwellSec =', usePlaylistStore.getState().dwellSec);
+        console.log('[SessionPage] session started — audio-completion-driven advancement');
         setIsStarted(true);
         setActiveSessionId(sessionId);
     }
 
     function handleStopSession() {
+        // stopQueue() already calls audioStore.stop() internally
         stopQueue();
         setQueueMode(false);
         setIsStarted(false);
@@ -313,38 +321,9 @@ export default function SessionPage() {
                ══════════════════════════════════════════════════ */}
             {!isBuilding && !isStarted && (
                 <>
-                    {/* No loops in vault — soft block */}
-                    {!hasLoops && (
-                        <div className="bg-parchment-100 rounded-xl border border-forest-100 p-6 text-center space-y-3">
-                            <p className="text-sm text-forest-600 font-medium">
-                                Your Vault is empty — create a loop first, then come back to build a session.
-                            </p>
-                            <p className="text-xs text-forest-400">
-                                A loop is a short, repeatable message designed to train your thinking.
-                            </p>
-                            <Link
-                                href="/app/generate"
-                                className="inline-flex items-center gap-2 text-sm font-semibold text-parchment-100 bg-forest-700 hover:bg-forest-600 transition-colors px-5 py-2.5 rounded-full"
-                            >
-                                Create Your First Loop →
-                            </Link>
-                        </div>
-                    )}
-
-                    {/* Has loops: show saved sessions + create */}
-                    {hasLoops && (
-                        <>
-                            {/* Mental model explainer */}
-                            <div className="bg-gradient-to-br from-forest-50 to-parchment-100 rounded-xl border border-forest-100 p-4">
-                                <p className="text-sm text-forest-600 leading-relaxed">
-                                    <span className="font-semibold text-forest-700">How sessions work:</span>{' '}
-                                    Build a session by choosing loops from your Vault. Save it, then replay it anytime.
-                                    Loops play in order and repeat continuously until you stop.
-                                </p>
-                            </div>
-
-                            {/* Saved Sessions */}
-                            {sessions.length > 0 && (
+                    {/* Saved Sessions — always shown when they exist,
+                        regardless of vault loop loading state */}
+                    {sessions.length > 0 && (
                                 <section className="space-y-3">
                                     <h2 className="font-serif text-sm font-bold text-forest-700 uppercase tracking-wide">
                                         Your Sessions
@@ -354,6 +333,13 @@ export default function SessionPage() {
                                             const config = getSessionTypeConfig(session.typeId);
                                             const loopCount = session.loopIds.length;
                                             const isConfirmingDelete = deleteConfirmId === session.id;
+
+                                            // Resolve loop titles for preview
+                                            const loopTitles = session.loopIds
+                                                .map(id => loops.find(l => l.id === id)?.title)
+                                                .filter(Boolean) as string[];
+                                            const previewTitles = loopTitles.slice(0, 3);
+                                            const extraCount = loopTitles.length - previewTitles.length;
 
                                             return (
                                                 <div
@@ -369,6 +355,12 @@ export default function SessionPage() {
                                                         <p className="text-xs text-forest-400 mt-0.5">
                                                             {loopCount} loop{loopCount !== 1 ? 's' : ''} · {config.label}
                                                         </p>
+                                                        {previewTitles.length > 0 && (
+                                                            <p className="text-[11px] text-forest-500 mt-1 truncate">
+                                                                {previewTitles.join(', ')}
+                                                                {extraCount > 0 && ` +${extraCount} more`}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                                         <button
@@ -418,7 +410,37 @@ export default function SessionPage() {
                                         })}
                                     </div>
                                 </section>
-                            )}
+                    )}
+
+                    {/* No loops in vault AND no sessions — soft block */}
+                    {!hasLoops && sessions.length === 0 && (
+                        <div className="bg-parchment-100 rounded-xl border border-forest-100 p-6 text-center space-y-3">
+                            <p className="text-sm text-forest-600 font-medium">
+                                Your Vault is empty — create a loop first, then come back to build a session.
+                            </p>
+                            <p className="text-xs text-forest-400">
+                                A loop is a short, repeatable message designed to train your thinking.
+                            </p>
+                            <Link
+                                href="/app/generate"
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-parchment-100 bg-forest-700 hover:bg-forest-600 transition-colors px-5 py-2.5 rounded-full"
+                            >
+                                Create Your First Loop →
+                            </Link>
+                        </div>
+                    )}
+
+                    {/* Explainer + Create section — only when vault has loops */}
+                    {hasLoops && (
+                        <>
+                            {/* Mental model explainer */}
+                            <div className="bg-gradient-to-br from-forest-50 to-parchment-100 rounded-xl border border-forest-100 p-4">
+                                <p className="text-sm text-forest-600 leading-relaxed">
+                                    <span className="font-semibold text-forest-700">How sessions work:</span>{' '}
+                                    Build a session by choosing loops from your Vault. Save it, then replay it anytime.
+                                    Each loop plays fully once, then the next loop starts automatically.
+                                </p>
+                            </div>
 
                             {/* Empty state for sessions (has loops, no sessions) */}
                             {sessions.length === 0 && (
@@ -501,25 +523,12 @@ export default function SessionPage() {
                         );
                     })()}
 
-                    {/* Dwell Time */}
-                    <div>
-                        <label className="block text-sm font-medium text-forest-600 mb-2">
-                            Time per loop: {dwellSec >= 60 ? `${Math.floor(dwellSec / 60)}m` : `${dwellSec}s`}
-                        </label>
-                        <input
-                            type="range"
-                            value={dwellSec}
-                            onChange={(e) => setDwellSec(Number(e.target.value))}
-                            min={30}
-                            max={600}
-                            step={30}
-                            className="w-full accent-forest-600"
-                        />
-                        <div className="flex justify-between text-xs text-forest-400 mt-1">
-                            <span>30s</span>
-                            <span>5m</span>
-                            <span>10m</span>
-                        </div>
+                    {/* Playback note */}
+                    <div className="bg-forest-50 rounded-lg border border-forest-100 p-3">
+                        <p className="text-xs text-forest-500">
+                            <span className="font-medium text-forest-600">Playback:</span>{' '}
+                            Each loop plays fully once, then the next loop starts automatically. After the last loop, the session wraps back to the first.
+                        </p>
                     </div>
 
                     {/* Selected Loops */}
@@ -668,10 +677,23 @@ export default function SessionPage() {
                 <div className="space-y-6">
                     {/* Now Playing */}
                     <div className="bg-parchment-100 rounded-xl border border-forest-100 p-6 text-center space-y-4">
-                        <p className="text-xs text-forest-400 uppercase tracking-wide">Now Playing</p>
+                        <p className="text-xs text-forest-400 uppercase tracking-wide">
+                            {audioLoading ? 'Preparing Audio…' : 'Now Playing'}
+                        </p>
                         <h2 className="font-serif text-xl font-bold text-forest-700">
                             {currentItem?.title || 'Loading...'}
                         </h2>
+                        {audioLoading && (
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="w-5 h-5 border-2 border-forest-300 border-t-forest-700 rounded-full animate-spin" />
+                                <span className="text-xs text-forest-500">Synthesizing voice…</span>
+                            </div>
+                        )}
+                        {audioLoadError && (
+                            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                {audioLoadError}
+                            </p>
+                        )}
                         <p className="text-sm text-forest-500">
                             Loop {queueIndex + 1} of {queue.length}
                         </p>
@@ -722,16 +744,7 @@ export default function SessionPage() {
                     {/* Queue */}
                     <div className="space-y-1">
                         <p className="text-xs text-forest-400 mb-2">
-                            Loops play in order and repeat continuously.
-                            {dwellRemaining !== null && dwellRemaining > 0 ? (
-                                <span className="ml-1 text-forest-600 font-semibold">
-                                    Auto-next in {dwellRemaining}s
-                                </span>
-                            ) : dwellSec > 0 ? (
-                                <span className="ml-1 text-forest-500 font-medium">
-                                    Auto-next every {dwellSec >= 60 ? `${Math.floor(dwellSec / 60)}m` : `${dwellSec}s`}.
-                                </span>
-                            ) : null}
+                            Each loop plays fully once, then the next starts automatically.
                         </p>
                         {queue.map((item, i) => (
                             <div

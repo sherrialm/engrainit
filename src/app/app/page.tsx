@@ -328,8 +328,9 @@ export default function AppDashboard() {
                 </div>
             )}
 
-            {/* ── Three Primary Actions ──────────────────────── */}
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3" id="primary-actions">
+
+            {/* ── Primary Actions ──────────────────────────── */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="primary-actions">
                 <Link
                     href="/app/session"
                     className="flex flex-col items-center gap-2 py-5 px-4 rounded-2xl bg-gradient-to-br from-forest-700 to-forest-800 text-parchment-100 shadow-lg hover:shadow-xl hover:from-forest-600 hover:to-forest-700 transition-all group"
@@ -348,6 +349,16 @@ export default function AppDashboard() {
                     <LoopIcon className="w-8 h-8 text-parchment-100 group-hover:scale-110 transition-transform" />
                     <span className="font-serif text-base font-bold">Create a Loop</span>
                     <span className="text-xs text-parchment-300">Turn a thought, goal, or truth into a repeatable audio loop.</span>
+                </Link>
+
+                <Link
+                    href="/app/record"
+                    className="flex flex-col items-center gap-2 py-5 px-4 rounded-2xl bg-gradient-to-br from-forest-700 to-forest-800 text-parchment-100 shadow-lg hover:shadow-xl hover:from-forest-600 hover:to-forest-700 transition-all group"
+                    id="action-record-voice"
+                >
+                    <span className="text-3xl group-hover:scale-110 transition-transform">🎙️</span>
+                    <span className="font-serif text-base font-bold">Record Voice</span>
+                    <span className="text-xs text-parchment-300">Record your own voice into a repeatable loop.</span>
                 </Link>
 
                 <Link

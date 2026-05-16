@@ -88,7 +88,7 @@ export class RecorderService {
             this.mediaRecorder.onstop = () => {
                 console.log('[Recorder] onstop fired, chunks:', this.audioChunks.length);
                 const audioBlob = new Blob(this.audioChunks, { type: mimeType || 'audio/webm' });
-                console.log('[Recorder] Created blob, size:', audioBlob.size);
+                console.log('[Recorder] Created blob — size:', audioBlob.size, 'type:', audioBlob.type, 'mimeType used:', mimeType || 'audio/webm');
                 const duration = (Date.now() - this.startTime) / 1000;
                 this.onRecordingComplete?.(audioBlob, duration);
                 this.stopTimeUpdate();

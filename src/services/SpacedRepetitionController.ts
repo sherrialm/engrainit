@@ -177,14 +177,18 @@ export class SpacedRepetitionController {
         // If interval is 0, just play continuously (gapless loop)
         if (this.intervalSeconds === 0) {
             console.log('[SpacedRepetitionController] Continuous mode (0s interval), enabling native loop');
-            this.audioEngine.play();
+            this.audioEngine.play(); // native loop = true
             this.broadcastState();
             return;
         }
 
-        // Play audio once (we'll handle the loop manually for spaced repetition)
-        console.log('[SpacedRepetitionController] Playing audio, interval starts after play cycle');
-        this.audioEngine.play();
+        // Play audio ONCE — disable native looping so the audio doesn't
+        // restart before our duration timer fires. Without this, the
+        // Web Audio API source node (loop=true) races the setTimeout,
+        // causing the user to hear the loop start a second time before
+        // the controller can pause it.
+        console.log('[SpacedRepetitionController] Playing audio once (no native loop), interval starts after play cycle');
+        this.audioEngine.play(false);
         this.loopCount++;
         this.onLoopComplete?.(this.loopCount, this.maxRepeats);
         this.broadcastState();
@@ -207,7 +211,7 @@ export class SpacedRepetitionController {
         const duration = this.audioEngine.getDuration() || 5;
         console.log(`[SpacedRepetitionController] Audio duration: ${duration}s, scheduling interval in ${duration}s`);
 
-        // After one loop cycle, pause and start interval
+        // After one play cycle, pause and start interval countdown
         this.intervalTimer = setTimeout(() => {
             if (!this.isActive) return;
 

@@ -76,11 +76,9 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
         const item = queue[queueIndex];
         if (!item) return;
 
-        // Load via audioStore
+        // Load via audioStore — advancement is now driven by audio completion
+        // (onQueueLoopFinished), not a dwell timer.
         useAudioStore.getState().loadAndPlay(item.loop);
-
-        // Start dwell timer if applicable
-        get()._startDwellTimer();
     },
 
     stopQueue: () => {
@@ -102,6 +100,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
             clearTimeout(dwellTimer);
             set({ dwellTimer: null });
         }
+        get()._clearDwellTick();
 
         if (queue.length === 0) {
             console.warn('[PlaylistStore] nextInQueue: queue is empty, doing nothing');
@@ -120,7 +119,6 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
             }
             console.log(`[PlaylistStore] Playing wrapped loop: "${item.title}" (index 0)`);
             useAudioStore.getState().loadAndPlay(item.loop);
-            get()._startDwellTimer();
             return;
         }
 
@@ -133,7 +131,6 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
         }
         console.log(`[PlaylistStore] Playing next loop: "${item.title}" (index ${nextIdx})`);
         useAudioStore.getState().loadAndPlay(item.loop);
-        get()._startDwellTimer();
     },
 
     prevInQueue: () => {
@@ -142,6 +139,7 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
             clearTimeout(dwellTimer);
             set({ dwellTimer: null });
         }
+        get()._clearDwellTick();
 
         const prevIdx = queueIndex - 1;
         if (prevIdx < 0) return;
@@ -150,7 +148,6 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
 
         const item = queue[prevIdx];
         useAudioStore.getState().loadAndPlay(item.loop);
-        get()._startDwellTimer();
     },
 
     /**

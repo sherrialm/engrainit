@@ -257,14 +257,35 @@ export async function incrementPlayCount(userId: string, loopId: string): Promis
 
 /**
  * Upload audio to Firebase Storage
+ * Preserves the blob's MIME type as contentType metadata so Firebase
+ * serves the correct Content-Type header on download.
+ * Strips codec parameters (e.g. ;codecs=opus) from the MIME type
+ * since Firebase serves this as the Content-Type header and some
+ * browsers are strict about codec-qualified MIME types.
  */
 export async function uploadAudio(userId: string, audioBlob: Blob, filename: string): Promise<string> {
     if (!storage) throw new Error('Firebase Storage not initialized');
 
-    const audioRef = ref(storage!, `users/${userId}/audio/${filename}`);
-    await uploadBytes(audioRef, audioBlob);
+    // Normalize: 'audio/webm;codecs=opus' → 'audio/webm'
+    const rawType = audioBlob.type || 'audio/webm';
+    const contentType = rawType.split(';')[0].trim();
+    console.log('[LoopService] uploadAudio — blob size:', audioBlob.size, 'rawType:', rawType, 'contentType:', contentType, 'filename:', filename);
 
-    return getDownloadURL(audioRef);
+    if (audioBlob.size === 0) {
+        throw new Error('Cannot upload empty audio blob');
+    }
+
+    const audioRef = ref(storage!, `users/${userId}/audio/${filename}`);
+    await uploadBytes(audioRef, audioBlob, {
+        contentType,
+        customMetadata: {
+            originalMimeType: rawType,
+        },
+    });
+
+    const url = await getDownloadURL(audioRef);
+    console.log('[LoopService] uploadAudio — download URL obtained, length:', url.length);
+    return url;
 }
 
 /**

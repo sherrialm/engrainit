@@ -92,6 +92,14 @@ export function buildIntentSummary(input: LoopGenerationInput): string {
 }
 
 /**
+ * Check if the user's intents indicate a memorization/study purpose.
+ * Used by the Generate page to redirect to the Remember flow.
+ */
+export function isMemorizationIntent(intents: string[]): boolean {
+    return intents.some(i => i === 'memorize' || i === 'learn');
+}
+
+/**
  * System prompt for AI loop generation.
  *
  * KEY CONSTRAINTS:
@@ -100,6 +108,10 @@ export function buildIntentSummary(input: LoopGenerationInput): string {
  * - Each line stands alone when repeated
  * - Present tense, first person, positive framing
  * - Clear rhythm and cadence for audio repetition
+ *
+ * When the user selects memorize/learn intents AND provides details,
+ * the prompt switches to a memorization mode that preserves the
+ * actual content rather than generating affirmation-style text.
  */
 export function buildLoopGenerationPrompt(input: LoopGenerationInput): string {
     const moods = input.moods.map(m => MOOD_LABELS[m] || m).join(', ');
@@ -114,6 +126,48 @@ export function buildLoopGenerationPrompt(input: LoopGenerationInput): string {
     const goals = intents || legacyGoals || 'General improvement';
     const challenges = !intents ? (legacyProblems || 'None specified') : 'None specified';
 
+    // ── Memorization / Study mode ─────────────────────────────
+    // When the user wants to memorize/learn AND provides details (material),
+    // generate a loop that preserves the actual content.
+    const hasStudyIntent = input.intents?.some(i => i === 'memorize' || i === 'learn');
+    const hasDetails = !!(input.details && input.details.trim().length > 0);
+
+    if (hasStudyIntent && hasDetails) {
+        return `You are creating a memorization loop for audio repetition-based learning.
+
+The user wants to MEMORIZE or LEARN the following material:
+"${input.details}"
+
+CRITICAL RULES:
+- DO NOT turn this into a motivational affirmation or guided message
+- PRESERVE the actual facts, definitions, vocabulary, scripture, or study material
+- Reformat the content for easy audio repetition (spoken aloud)
+- Keep it concise: 30-80 words maximum
+- Use simple, clear language
+- Chunk or organize the material logically if it has multiple parts
+- Each line should be a single fact, term, or concept
+- If the material is short, repeat key points for reinforcement
+
+OUTPUT FORMAT (valid JSON):
+{
+  "name": "2-4 word descriptive title",
+  "text": "Fact or term one.\\nDefinition or explanation.\\nFact or term two.\\nDefinition or explanation.",
+  "voiceId": "focused-coach",
+  "intervalSeconds": 120
+}
+
+EXAMPLE:
+Input: "The mitochondria is the powerhouse of the cell. ATP is produced through cellular respiration."
+Output:
+{
+  "name": "Cell Energy Basics",
+  "text": "The mitochondria is the powerhouse of the cell.\\nATP is produced through cellular respiration.\\nMitochondria. Powerhouse. ATP. Cellular respiration.",
+  "voiceId": "focused-coach",
+  "intervalSeconds": 120
+}`;
+    }
+
+    // ── Standard affirmation/alignment mode ────────────────────
     return `You are creating a mental loop for audio repetition-based training.
 
 CONTEXT:

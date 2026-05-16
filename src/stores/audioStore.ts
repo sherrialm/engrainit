@@ -150,8 +150,30 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         _playRequestId++;
         const thisRequestId = _playRequestId;
 
-        // STOP any active session/timers first
-        get().stop();
+        // Stop current audio playback without clearing the playlist queue.
+        // We must NOT call get().stop() here because stop() now clears the
+        // playlist queue — which breaks session startup (startQueue → loadAndPlay
+        // → stop → queue wiped). Instead, stop only the audio/spaced-rep engine.
+        get().audioEngine?.stop();
+        get().spacedController?.stop();
+        get().stopBackground();
+        set({ isPlaying: false, isPaused: false, currentTime: 0, intervalRemaining: null });
+
+        // If a playlist queue is active but this loadAndPlay was NOT triggered
+        // by the queue (single-loop play from Vault / Dashboard), clear the
+        // stale queue so the UI renders NowPlayingBar, not QueueNowPlayingBar.
+        const ps = usePlaylistStore.getState();
+        if (ps.isQueueMode) {
+            const currentQueueItem = ps.queue[ps.queueIndex];
+            const isFromQueue = currentQueueItem && currentQueueItem.loopId === loop.id;
+            if (!isFromQueue) {
+                console.log('[AudioStore] Clearing stale queue mode for single-loop play');
+                if (ps.dwellTimer) clearTimeout(ps.dwellTimer);
+                ps._clearDwellTick();
+                usePlaylistStore.setState({ queue: [], queueIndex: 0, isQueueMode: false, dwellTimer: null });
+            }
+        }
+
         set({ isLoading: true, loadingLoopId: loop.id, loadError: null });
 
         const engine = get().audioEngine!;
@@ -195,7 +217,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 return;
             }
 
-            await engine.loadAudio(audioSource);
+            // Voice recordings (webm/opus from MediaRecorder) cannot be reliably
+            // decoded by decodeAudioData on Safari/WebKit.  Use native
+            // HTMLAudioElement playback for these.  TTS loops (mp3) continue
+            // through the Web Audio API path for gapless looping.
+            const isVoiceRecording = loop.sourceType === 'recording';
+            console.log('[AudioStore] Loading audio —', isVoiceRecording ? 'HTMLAudioElement path (voice)' : 'Web Audio API path (TTS)', '— source length:', audioSource.length);
+
+            if (isVoiceRecording) {
+                await engine.loadAudioAsElement(audioSource);
+            } else {
+                await engine.loadAudio(audioSource);
+            }
 
             // BAIL if a newer request started while we were loading audio
             if (thisRequestId !== _playRequestId) {
@@ -203,36 +236,74 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 return;
             }
 
-            // Stop anything that might have started playing in the meantime
-            engine.stop();
+            // Stop anything that might have started playing in the meantime.
+            // Skip for HTMLAudioElement path — stop() would reset the element
+            // we just loaded and cause play() to fail or race.
+            if (!engine.getIsUsingHtmlAudio()) {
+                engine.stop();
+            }
 
             set({
                 currentLoop: loop,
-                duration: engine.getDuration(),
+                duration: engine.getDuration() || loop.duration || 0,
                 currentTime: 0,
                 isLoading: false,
                 loadingLoopId: null,
                 loadError: null,
             });
 
-            // Sync interval and repeat count
+            // Sync interval and repeat count (used for standalone play only)
             if (get().spacedController) {
                 get().spacedController!.setInterval(loop.intervalSeconds);
                 get().spacedController!.setMaxRepeats(get().repeatCount);
             }
 
             set({ currentRepeat: 0 });
-            engine.play();
+
+            // ── Queue/Session mode: play once, advance on audio end ──
+            const ps = usePlaylistStore.getState();
+            if (ps.isQueueMode && ps.queue.length > 0) {
+                console.log('[AudioStore] Queue mode — playing once, will advance on audio end');
+                // Play WITHOUT native looping so it stops when done
+                engine.play(false);
+
+                // Listen for audio completion to advance to next loop.
+                // For Web Audio API path, sourceNode.onended fires.
+                // For HTMLAudioElement path, the 'ended' event fires.
+                const onAudioEnded = () => {
+                    // Bail if a newer request started (user skipped manually)
+                    if (thisRequestId !== _playRequestId) return;
+                    console.log('[AudioStore] Audio ended in queue mode — advancing');
+                    set({ isPlaying: false, isPaused: false });
+                    usePlaylistStore.getState().onQueueLoopFinished();
+                };
+
+                if (engine.getIsUsingHtmlAudio()) {
+                    // HTMLAudioElement path — disable loop, listen for 'ended'
+                    const htmlAudio = (engine as any).htmlAudio as HTMLAudioElement | null;
+                    if (htmlAudio) {
+                        htmlAudio.loop = false;
+                        htmlAudio.addEventListener('ended', onAudioEnded, { once: true });
+                    }
+                } else {
+                    // Web Audio API path — onended fires when loop=false
+                    engine.onLoop = onAudioEnded;
+                }
+            } else {
+                // ── Standalone play: use spaced repetition as before ──
+                const useSpacedRep = !!(get().spacedController && loop.intervalSeconds > 0 && loop.sourceType !== 'recording');
+
+                if (useSpacedRep) {
+                    console.log('[AudioStore] Delegating play to SpacedRepetitionController, interval:', loop.intervalSeconds);
+                    get().spacedController!.start();
+                } else {
+                    engine.play();
+                }
+            }
 
             // Start background if enabled
             if (get().backgroundEnabled) {
                 get().startBackground();
-            }
-
-            // Auto-start spaced repetition so the loop interval is used
-            if (get().spacedController && loop.intervalSeconds > 0) {
-                console.log('[AudioStore] Auto-starting spaced repetition with interval:', loop.intervalSeconds);
-                get().spacedController!.start();
             }
         } catch (error: any) {
             if (thisRequestId !== _playRequestId) return;
@@ -302,11 +373,23 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     },
 
     play: () => {
-        get().audioEngine?.play();
+        const { spacedController, audioEngine } = get();
+        if (spacedController?.getIsActive()) {
+            // Resume the spaced repetition controller (it handles play internally)
+            spacedController.resume();
+        } else {
+            audioEngine?.play();
+        }
     },
 
     pause: () => {
-        get().audioEngine?.pause();
+        const { spacedController, audioEngine } = get();
+        // Pause the spaced repetition controller first (stops its timers)
+        if (spacedController?.getIsActive()) {
+            spacedController.pause();
+        } else {
+            audioEngine?.pause();
+        }
         get().stopBackground();
     },
 
@@ -314,16 +397,34 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         get().audioEngine?.stop();
         get().spacedController?.stop();
         get().stopBackground();
+        // Clear the playlist queue if active — done inline to avoid
+        // circular call (playlistStore.stopQueue → audioStore.stop → …)
+        const ps = usePlaylistStore.getState();
+        if (ps.isQueueMode) {
+            if (ps.dwellTimer) clearTimeout(ps.dwellTimer);
+            ps._clearDwellTick();
+            usePlaylistStore.setState({ queue: [], queueIndex: 0, isQueueMode: false, dwellTimer: null });
+        }
         set({ currentLoop: null, isPlaying: false, isPaused: false, currentTime: 0, duration: 0, intervalRemaining: null });
     },
 
     toggle: () => {
-        const { audioEngine, isPlaying } = get();
+        const { spacedController, audioEngine, isPlaying } = get();
         if (isPlaying) {
-            audioEngine?.pause();
+            // Pause — must also pause the spaced repetition controller
+            if (spacedController?.getIsActive()) {
+                spacedController.pause();
+            } else {
+                audioEngine?.pause();
+            }
             get().stopBackground();
         } else {
-            audioEngine?.play();
+            // Resume — must also resume the spaced repetition controller
+            if (spacedController?.getIsActive()) {
+                spacedController.resume();
+            } else {
+                audioEngine?.play();
+            }
             // Resume background if enabled and primary is loaded
             if (get().backgroundEnabled && get().currentLoop && !get().isBackgroundPlaying) {
                 get().startBackground();

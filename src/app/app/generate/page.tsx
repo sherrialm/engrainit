@@ -23,6 +23,7 @@ import { useAudioStore } from '@/stores/audioStore';
 import { LoopIcon, PlayIcon, CheckIcon } from '@/components/Icons';
 import PlaybackControls from '@/components/PlaybackControls';
 import { summarizeIntent, generateLoop } from '@/services/AIService';
+import { isMemorizationIntent } from '@/services/prompts/LoopPrompts';
 import { VOICE_OPTIONS, getVoiceLabel } from '@/config/voices';
 import type { LoopMood, LoopIntent, LoopGenerationInput, GeneratedLoopSuggestion } from '@/types';
 
@@ -330,18 +331,41 @@ export default function GenerateLoopPage() {
             {/* Step 2: Details */}
             {step === 2 && (
                 <div className="space-y-4">
+                    {/* Memorization mode hint */}
+                    {isMemorizationIntent(selectedIntents) && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                            <p className="text-sm font-semibold text-amber-800">
+                                📝 Study / Memorization Mode
+                            </p>
+                            <p className="text-xs text-amber-700 leading-relaxed">
+                                Paste the facts, scripture, vocabulary, definitions, or study material
+                                you want to memorize in the box below. The AI will preserve your content
+                                and format it as a repeatable audio loop.
+                            </p>
+                            <Link
+                                href="/app/remember"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-full transition-colors"
+                            >
+                                🧠 For longer material, use Remember Something →
+                            </Link>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-forest-600 mb-2">
-                            Any additional thoughts or details? (optional)
+                            {isMemorizationIntent(selectedIntents)
+                                ? 'Paste the material you want to memorize:'
+                                : 'Any additional thoughts or details? (optional)'}
                         </label>
                         <textarea
                             value={details}
                             onChange={(e) => setDetails(e.target.value)}
                             className="input-field min-h-[120px] resize-none"
-                            placeholder="Share anything else on your mind..."
-                            maxLength={500}
+                            placeholder={isMemorizationIntent(selectedIntents)
+                                ? 'Paste facts, definitions, scripture, vocabulary, or study notes here...'
+                                : 'Share anything else on your mind...'}
+                            maxLength={2000}
                         />
-                        <p className="text-xs text-forest-400 mt-1">{details.length}/500</p>
+                        <p className="text-xs text-forest-400 mt-1">{details.length}/2000</p>
                     </div>
                     <div className="flex gap-3">
                         <button onClick={() => setStep(1)} className="btn-ghost flex-1">
@@ -388,6 +412,13 @@ export default function GenerateLoopPage() {
             {/* Step 4: Result with voice selector + playback controls */}
             {step === 4 && generatedLoop && (
                 <div className="space-y-4">
+                    {/* TTS clarification */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+                        <p className="text-xs text-blue-700">
+                            🎙️ This loop will be <strong>automatically voiced</strong> using text-to-speech when you play it.
+                            Choose a voice below before saving.
+                        </p>
+                    </div>
                     <div className="bg-parchment-100 rounded-xl border border-forest-100 p-5 space-y-3">
                         <h3 className="font-serif text-lg font-bold text-forest-700">
                             {generatedLoop.name}
