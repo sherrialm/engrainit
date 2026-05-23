@@ -230,6 +230,7 @@ export interface SavedSession {
     name: string;
     typeId: SessionTypeId;
     loopIds: string[];          // ordered references to Loop.id
+    gapSeconds: number;         // pause between loops (0=immediately, -1=manual)
     createdAt: string;          // ISO string
     updatedAt: string;          // ISO string
 }

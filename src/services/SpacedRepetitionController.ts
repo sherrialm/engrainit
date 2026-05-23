@@ -39,7 +39,8 @@ export class SpacedRepetitionController {
      */
     setInterval(seconds: number): void {
         const oldInterval = this.intervalSeconds;
-        this.intervalSeconds = Math.max(0, Math.min(300, seconds)); // 0s (continuous) to 5min
+        // Allow -1 (manual/no-repeat), 0 (continuous), or 1–300
+        this.intervalSeconds = seconds === -1 ? -1 : Math.max(0, Math.min(300, seconds));
         console.log(`[SpacedRepetitionController] setInterval: ${oldInterval}s -> ${this.intervalSeconds}s`);
 
         // If we are currently counting down (not playing audio), update the countdown immediately
@@ -47,7 +48,11 @@ export class SpacedRepetitionController {
             console.log('[SpacedRepetitionController] Active countdown, restarting with new interval');
             this.clearTimers();
 
-            if (this.intervalSeconds === 0) {
+            if (this.intervalSeconds === -1) {
+                // Switch to manual — stop repeating
+                this.remainingSeconds = 0;
+                this.stop();
+            } else if (this.intervalSeconds === 0) {
                 // Switch to continuous play now
                 this.remainingSeconds = 0;
                 this.playWithInterval();
@@ -173,6 +178,24 @@ export class SpacedRepetitionController {
 
         // Clear any existing wait timer before starting a new cycle
         this.clearTimers();
+
+        // Manual mode (-1): play once then stop — no auto-repeat
+        if (this.intervalSeconds === -1) {
+            console.log('[SpacedRepetitionController] Manual mode (-1), playing once then stopping');
+            this.audioEngine.play(false);
+            this.loopCount++;
+            this.onLoopComplete?.(this.loopCount, this.maxRepeats);
+            this.broadcastState();
+
+            // After audio finishes, stop the session
+            const duration = this.audioEngine.getDuration() || 5;
+            this.intervalTimer = setTimeout(() => {
+                if (!this.isActive) return;
+                this.stop();
+                this.onSessionComplete?.();
+            }, duration * 1000);
+            return;
+        }
 
         // If interval is 0, just play continuously (gapless loop)
         if (this.intervalSeconds === 0) {

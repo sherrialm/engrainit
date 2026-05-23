@@ -181,24 +181,31 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         try {
             let audioSource = loop.audioUrl;
 
+            // ── Synthesize TTS audio on-the-fly ──────────────────────
+            // Helper that calls the TTS API and returns a base64 data-URL.
+            // Used both for loops with no audioUrl AND as a fallback when
+            // an existing audioUrl is stale/expired (see retry below).
+            const synthesizeTTS = async (): Promise<string | null> => {
+                if (!loop.text) return null;
+                console.log('[AudioStore] Synthesizing TTS for:', loop.title);
+                const ttsResult = await generateSpeech({
+                    text: loop.text,
+                    voiceId: loop.voiceId || 'sage',
+                });
+                if (thisRequestId !== _playRequestId) return null; // stale
+                if (!ttsResult.audioContent) throw new Error('TTS returned no audio');
+                console.log('[AudioStore] TTS synthesis complete');
+                return ttsResult.audioContent;
+            };
+
             // If no audio URL but has text, synthesize TTS on-the-fly
             if ((!audioSource || audioSource.length === 0) && loop.text) {
-                console.log('[AudioStore] No audioUrl, synthesizing TTS for:', loop.title);
+                console.log('[AudioStore] No audioUrl, will synthesize TTS');
                 try {
-                    const ttsResult = await generateSpeech({
-                        text: loop.text,
-                        voiceId: loop.voiceId || 'sage',
-                    });
-
-                    // BAIL if a newer request started while we were synthesizing
-                    if (thisRequestId !== _playRequestId) {
-                        console.log('[AudioStore] Stale TTS request, bailing:', loop.title);
-                        return;
-                    }
-
-                    if (ttsResult.audioContent) {
-                        audioSource = ttsResult.audioContent;
-                        console.log('[AudioStore] TTS synthesis complete');
+                    const content = await synthesizeTTS();
+                    if (thisRequestId !== _playRequestId) return;
+                    if (content) {
+                        audioSource = content;
                     } else {
                         throw new Error('TTS returned no audio');
                     }
@@ -224,10 +231,38 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             const isVoiceRecording = loop.sourceType === 'recording';
             console.log('[AudioStore] Loading audio —', isVoiceRecording ? 'HTMLAudioElement path (voice)' : 'Web Audio API path (TTS)', '— source length:', audioSource.length);
 
-            if (isVoiceRecording) {
-                await engine.loadAudioAsElement(audioSource);
-            } else {
-                await engine.loadAudio(audioSource);
+            // ── Load audio with TTS fallback for stale URLs ──────────
+            // For TTS loops: if the stored audioUrl fails (expired Firebase
+            // Storage token, deleted file, etc.), fall back to regenerating
+            // the audio via TTS rather than showing the user an error.
+            try {
+                if (isVoiceRecording) {
+                    await engine.loadAudioAsElement(audioSource);
+                } else {
+                    await engine.loadAudio(audioSource);
+                }
+            } catch (loadError: any) {
+                // Only attempt TTS fallback for TTS loops that have text
+                if (loop.sourceType === 'tts' && loop.text && !audioSource.startsWith('data:')) {
+                    console.warn('[AudioStore] Audio load failed, attempting TTS fallback regeneration:', loadError.message);
+                    if (thisRequestId !== _playRequestId) return;
+                    try {
+                        const fallbackContent = await synthesizeTTS();
+                        if (thisRequestId !== _playRequestId) return;
+                        if (fallbackContent) {
+                            audioSource = fallbackContent;
+                            await engine.loadAudio(audioSource);
+                        } else {
+                            throw loadError; // re-throw original
+                        }
+                    } catch (fallbackError: any) {
+                        if (thisRequestId !== _playRequestId) return;
+                        console.error('[AudioStore] TTS fallback also failed:', fallbackError.message);
+                        throw fallbackError;
+                    }
+                } else {
+                    throw loadError; // Not a TTS loop or no text — propagate
+                }
             }
 
             // BAIL if a newer request started while we were loading audio
@@ -290,10 +325,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                     engine.onLoop = onAudioEnded;
                 }
             } else {
-                // ── Standalone play: use spaced repetition as before ──
-                const useSpacedRep = !!(get().spacedController && loop.intervalSeconds > 0 && loop.sourceType !== 'recording');
-
-                if (useSpacedRep) {
+                // ── Standalone play ──
+                // Voice recordings always use native loop (SpacedRep can't manage HTMLAudioElement timing)
+                if (loop.sourceType === 'recording') {
+                    console.log('[AudioStore] Voice recording — playing with native loop');
+                    engine.play();
+                } else if (get().spacedController) {
+                    // TTS loops: delegate to SpacedRepetitionController which
+                    // handles -1 (manual/play once), 0 (continuous), and >0 (interval)
                     console.log('[AudioStore] Delegating play to SpacedRepetitionController, interval:', loop.intervalSeconds);
                     get().spacedController!.start();
                 } else {

@@ -21,7 +21,8 @@ export interface DraftSession {
     typeId: SessionTypeId;
     name: string;
     loopIds: string[];
-    editingSessionId: string | null; // null = creating new
+    gapSeconds: number;               // -1=manual, 0=immediately, >0=seconds
+    editingSessionId: string | null;  // null = creating new
 }
 
 // ── Store types ───────────────────────────────────────────────
@@ -41,6 +42,7 @@ interface SessionState {
     addLoopToDraft: (loopId: string) => void;
     removeLoopFromDraft: (loopId: string) => void;
     setDraftLoops: (loopIds: string[]) => void;
+    setDraftGap: (seconds: number) => void;
     clearDraft: () => void;
 
     // Persistence actions
@@ -102,6 +104,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 typeId,
                 name: SESSION_TYPE_NAMES[typeId],
                 loopIds: [],
+                gapSeconds: 0,
                 editingSessionId: null,
             },
         });
@@ -116,6 +119,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 typeId: session.typeId,
                 name: session.name,
                 loopIds: [...session.loopIds],
+                gapSeconds: session.gapSeconds ?? 0,
                 editingSessionId: session.id,
             },
         });
@@ -146,6 +150,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({ draft: { ...draft, loopIds } });
     },
 
+    setDraftGap: (seconds: number) => {
+        const { draft } = get();
+        if (!draft) return;
+        set({ draft: { ...draft, gapSeconds: seconds } });
+    },
+
     clearDraft: () => {
         set({ draft: null });
     },
@@ -167,6 +177,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                           name: draft.name,
                           typeId: draft.typeId,
                           loopIds: draft.loopIds,
+                          gapSeconds: draft.gapSeconds,
                           updatedAt: now,
                       }
                     : s
@@ -181,6 +192,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 name: draft.name,
                 typeId: draft.typeId,
                 loopIds: draft.loopIds,
+                gapSeconds: draft.gapSeconds,
                 createdAt: now,
                 updatedAt: now,
             };

@@ -133,13 +133,13 @@ export default function SessionPage() {
     const { loops, fetchLoops } = useVaultStore();
     const { currentLoop, isPlaying, repeatCount, currentRepeat, isLoading: audioLoading, loadError: audioLoadError } = useAudioStore();
     const {
-        queue, queueIndex, isQueueMode,
+        queue, queueIndex, isQueueMode, gapRemaining, sessionGapSec,
         setQueue, startQueue, stopQueue, nextInQueue, prevInQueue,
         setQueueMode,
     } = usePlaylistStore();
     const {
         sessions, draft, activeSessionId,
-        startDraft, editSession, setDraftName,
+        startDraft, editSession, setDraftName, setDraftGap,
         addLoopToDraft, removeLoopFromDraft, setDraftLoops,
         clearDraft, saveDraft, deleteSavedSession,
         setActiveSessionId, hydrate,
@@ -235,6 +235,7 @@ export default function SessionPage() {
 
     function handleSaveAndStart() {
         // Save first
+        const gapSec = draft?.gapSeconds ?? 0;
         const sessionId = saveDraft();
         if (!sessionId) return;
 
@@ -242,18 +243,18 @@ export default function SessionPage() {
         const session = useSessionStore.getState().sessions.find(s => s.id === sessionId);
         if (!session) return;
 
-        startSessionPlayback(session.loopIds, sessionId);
+        startSessionPlayback(session.loopIds, sessionId, gapSec);
     }
 
     function handleStartSavedSession(sessionId: string) {
         const session = sessions.find(s => s.id === sessionId);
         if (!session) return;
 
-        startSessionPlayback(session.loopIds, sessionId);
+        startSessionPlayback(session.loopIds, sessionId, session.gapSeconds ?? 0);
     }
 
-    function startSessionPlayback(loopIds: string[], sessionId: string) {
-        console.log('[SessionPage] startSessionPlayback called', { loopIds, sessionId, loopsAvailable: loops.length });
+    function startSessionPlayback(loopIds: string[], sessionId: string, gapSeconds: number = 0) {
+        console.log('[SessionPage] startSessionPlayback called', { loopIds, sessionId, gapSeconds, loopsAvailable: loops.length });
         const sessionLoops = loopIds
             .map(id => loops.find(l => l.id === id))
             .filter(Boolean) as Loop[];
@@ -275,11 +276,13 @@ export default function SessionPage() {
 
         console.log('[SessionPage] calling setQueue with', items.length, 'items');
         setQueue(items);
+        // Set session gap BEFORE starting queue
+        usePlaylistStore.getState().setSessionGapSec(gapSeconds);
         console.log('[SessionPage] calling setQueueMode(true)');
         setQueueMode(true);
         console.log('[SessionPage] calling startQueue');
         startQueue();
-        console.log('[SessionPage] session started — audio-completion-driven advancement');
+        console.log('[SessionPage] session started — gap:', gapSeconds, 's');
         setIsStarted(true);
         setActiveSessionId(sessionId);
     }
@@ -331,13 +334,13 @@ export default function SessionPage() {
                                     <div className="space-y-2">
                                         {sessions.map(session => {
                                             const config = getSessionTypeConfig(session.typeId);
-                                            const loopCount = session.loopIds.length;
                                             const isConfirmingDelete = deleteConfirmId === session.id;
 
-                                            // Resolve loop titles for preview
+                                            // Resolve loop titles for preview — count only valid/existing loops
                                             const loopTitles = session.loopIds
                                                 .map(id => loops.find(l => l.id === id)?.title)
                                                 .filter(Boolean) as string[];
+                                            const loopCount = loopTitles.length;
                                             const previewTitles = loopTitles.slice(0, 3);
                                             const extraCount = loopTitles.length - previewTitles.length;
 
@@ -527,7 +530,44 @@ export default function SessionPage() {
                     <div className="bg-forest-50 rounded-lg border border-forest-100 p-3">
                         <p className="text-xs text-forest-500">
                             <span className="font-medium text-forest-600">Playback:</span>{' '}
-                            Each loop plays fully once, then the next loop starts automatically. After the last loop, the session wraps back to the first.
+                            Each loop plays fully once, then waits the selected gap before the next loop starts. After the last loop, the session wraps back to the first.
+                        </p>
+                    </div>
+
+                    {/* Time between loops selector */}
+                    <div>
+                        <label className="block text-xs font-medium text-forest-500 mb-1.5">
+                            Time Between Loops
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {[
+                                { label: 'Immediately', value: 0 },
+                                { label: '5s', value: 5 },
+                                { label: '10s', value: 10 },
+                                { label: '30s', value: 30 },
+                                { label: '1 min', value: 60 },
+                                { label: 'Manual', value: -1 },
+                            ].map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setDraftGap(opt.value)}
+                                    className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                                        (draft.gapSeconds ?? 0) === opt.value
+                                            ? 'bg-forest-700 text-parchment-100'
+                                            : 'bg-parchment-300 text-forest-600 hover:bg-parchment-400'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[11px] text-forest-400 mt-1">
+                            {(draft.gapSeconds ?? 0) === -1
+                                ? 'You\u2019ll press Next to advance to each loop.'
+                                : (draft.gapSeconds ?? 0) === 0
+                                ? 'The next loop starts immediately after the current one ends.'
+                                : `Waits ${draft.gapSeconds}s after each loop before the next one plays.`}
                         </p>
                     </div>
 
@@ -712,6 +752,21 @@ export default function SessionPage() {
                             </p>
                         )}
 
+                        {/* Gap countdown */}
+                        {gapRemaining !== null && gapRemaining > 0 && (
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-xs text-forest-500">Next loop in</span>
+                                <span className="text-sm font-bold text-forest-700">{gapRemaining}s</span>
+                            </div>
+                        )}
+
+                        {/* Manual gap waiting indicator */}
+                        {sessionGapSec === -1 && !isPlaying && !audioLoading && currentItem && (
+                            <p className="text-xs text-forest-500 italic">
+                                Press Next to advance to the next loop.
+                            </p>
+                        )}
+
                         {/* Transport Controls */}
                         <div className="flex items-center justify-center gap-4 pt-2">
                             <button
@@ -744,7 +799,11 @@ export default function SessionPage() {
                     {/* Queue */}
                     <div className="space-y-1">
                         <p className="text-xs text-forest-400 mb-2">
-                            Each loop plays fully once, then the next starts automatically.
+                            {sessionGapSec === -1
+                                ? 'Each loop plays fully once. Press Next to advance.'
+                                : sessionGapSec === 0
+                                ? 'Each loop plays fully once, then the next starts immediately.'
+                                : `Each loop plays fully once, then waits ${sessionGapSec}s before the next.`}
                         </p>
                         {queue.map((item, i) => (
                             <div

@@ -17,11 +17,12 @@ import { VOICE_OPTIONS, getVoiceLabel } from '@/config/voices';
 // ── Interval presets ──────────────────────────────────────────
 
 const INTERVAL_PRESETS = [
-    { label: '0s', value: 0, title: 'Continuous' },
+    { label: '0s', value: 0, title: 'Continuous (no gap)' },
     { label: '5s', value: 5, title: '5 second gap' },
     { label: '10s', value: 10, title: '10 second gap' },
     { label: '30s', value: 30, title: '30 second gap' },
     { label: '60s', value: 60, title: '1 minute gap' },
+    { label: 'Manual', value: -1, title: 'Do not auto-repeat' },
 ];
 
 // ── Repeat presets ────────────────────────────────────────────

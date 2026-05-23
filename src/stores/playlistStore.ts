@@ -3,7 +3,10 @@
  *
  * Runtime-only queue for sequential loop playback.
  * Uses the existing audioStore for actual playback — this store
- * only manages the queue, index, and dwell timer.
+ * only manages the queue, index, and session gap timer.
+ *
+ * Session gap = time between loops in a session.
+ * Single-loop repeat interval = controlled by SpacedRepetitionController.
  */
 
 import { create } from 'zustand';
@@ -25,22 +28,36 @@ interface PlaylistState {
     queue: QueueItem[];
     queueIndex: number;
     isQueueMode: boolean;
-    dwellSec: number; // 0 = manual next
+
+    // Session gap: time to wait between loops in a session
+    // -1 = manual (do not auto-advance), 0 = immediately, >0 = seconds
+    sessionGapSec: number;
+    gapTimer: NodeJS.Timeout | null;
+    gapRemaining: number | null; // live countdown for UI
+    _gapTickTimer: NodeJS.Timeout | null;
+
+    // Legacy dwell aliases (kept for compat with audioStore/vault)
     dwellTimer: NodeJS.Timeout | null;
-    dwellRemaining: number | null; // live countdown for UI
-    _dwellTickTimer: NodeJS.Timeout | null;
+    dwellSec: number;           // alias for sessionGapSec
+    dwellRemaining: number | null; // alias for gapRemaining
+    _clearDwellTick: () => void;
 
     setQueue: (items: QueueItem[]) => void;
     clearQueue: () => void;
     setQueueMode: (on: boolean) => void;
-    setDwellSec: (n: number) => void;
+    setSessionGapSec: (n: number) => void;
     startQueue: () => void;
     stopQueue: () => void;
     nextInQueue: () => void;
     prevInQueue: () => void;
     onQueueLoopFinished: () => void;
+    _startGapTimer: () => void;
+    _clearGapTick: () => void;
+
+    /** @deprecated Use setSessionGapSec */
+    setDwellSec: (n: number) => void;
+    /** @deprecated Unused — kept for audioStore compat */
     _startDwellTimer: () => void;
-    _clearDwellTick: () => void;
 }
 
 // ── Store ─────────────────────────────────────────────────────
@@ -49,10 +66,16 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     queue: [],
     queueIndex: 0,
     isQueueMode: false,
-    dwellSec: 30,
+
+    sessionGapSec: 0,    // default: advance immediately
+    gapTimer: null,
+    gapRemaining: null,
+    _gapTickTimer: null,
+
+    // Legacy aliases (audioStore.stop() references these)
     dwellTimer: null,
+    dwellSec: 0,
     dwellRemaining: null,
-    _dwellTickTimer: null,
 
     setQueue: (items) => set({ queue: items, queueIndex: 0 }),
 
@@ -66,7 +89,10 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
         if (!on) get().stopQueue();
     },
 
-    setDwellSec: (n) => set({ dwellSec: Math.max(0, n) }),
+    setSessionGapSec: (n) => set({ sessionGapSec: n, dwellSec: n }),
+
+    /** @deprecated Use setSessionGapSec */
+    setDwellSec: (n) => set({ sessionGapSec: Math.max(0, n), dwellSec: Math.max(0, n) }),
 
     startQueue: () => {
         const { queue, queueIndex } = get();
@@ -82,25 +108,25 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     },
 
     stopQueue: () => {
-        const { dwellTimer } = get();
-        if (dwellTimer) {
-            clearTimeout(dwellTimer);
-            set({ dwellTimer: null });
+        const { gapTimer } = get();
+        if (gapTimer) {
+            clearTimeout(gapTimer);
+            set({ gapTimer: null, dwellTimer: null });
         }
-        get()._clearDwellTick();
+        get()._clearGapTick();
         useAudioStore.getState().stop();
         set({ queue: [], queueIndex: 0, isQueueMode: false });
     },
 
     nextInQueue: () => {
-        const { queue, queueIndex, dwellTimer } = get();
+        const { queue, queueIndex, gapTimer } = get();
         console.log(`[PlaylistStore] nextInQueue called — queueIndex=${queueIndex}, queue.length=${queue.length}`);
 
-        if (dwellTimer) {
-            clearTimeout(dwellTimer);
-            set({ dwellTimer: null });
+        if (gapTimer) {
+            clearTimeout(gapTimer);
+            set({ gapTimer: null, dwellTimer: null });
         }
-        get()._clearDwellTick();
+        get()._clearGapTick();
 
         if (queue.length === 0) {
             console.warn('[PlaylistStore] nextInQueue: queue is empty, doing nothing');
@@ -134,12 +160,12 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     },
 
     prevInQueue: () => {
-        const { queue, queueIndex, dwellTimer } = get();
-        if (dwellTimer) {
-            clearTimeout(dwellTimer);
-            set({ dwellTimer: null });
+        const { queue, queueIndex, gapTimer } = get();
+        if (gapTimer) {
+            clearTimeout(gapTimer);
+            set({ gapTimer: null, dwellTimer: null });
         }
-        get()._clearDwellTick();
+        get()._clearGapTick();
 
         const prevIdx = queueIndex - 1;
         if (prevIdx < 0) return;
@@ -151,62 +177,80 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
     },
 
     /**
-     * Called when the SpacedRepetitionController finishes all repeats
-     * for the current loop.  Auto-advances to the next queue item so
-     * the session keeps cycling (loop 1 → 2 → 3 → 1 → …).
+     * Called when audio finishes for the current loop in session mode.
+     * Waits the session gap, then advances to the next queue item.
      */
     onQueueLoopFinished: () => {
-        const { isQueueMode, queue } = get();
+        const { isQueueMode, queue, sessionGapSec } = get();
         if (!isQueueMode || queue.length === 0) return;
-        get().nextInQueue();
-    },
 
-    // ── Internal: clear the 1-second countdown tick ───────────
-    _clearDwellTick: () => {
-        const { _dwellTickTimer } = get();
-        if (_dwellTickTimer) {
-            clearInterval(_dwellTickTimer);
-            set({ _dwellTickTimer: null, dwellRemaining: null });
-        }
-    },
-
-    // ── Internal: dwell timer helper ──────────────────────────
-    _startDwellTimer: () => {
-        const { dwellSec, dwellTimer: existing, isQueueMode } = get();
-        if (existing) clearTimeout(existing);
-        get()._clearDwellTick();
-
-        // Resolve the effective dwell time. In queue/session mode,
-        // never allow 0 (Manual) — fall back to 30s so the queue cycles.
-        let effectiveDwell = dwellSec;
-        if (effectiveDwell <= 0 && isQueueMode) {
-            effectiveDwell = 30;
-        }
-
-        if (effectiveDwell <= 0) {
-            console.log('[PlaylistStore] _startDwellTimer: dwellSec<=0, no timer set');
-            set({ dwellTimer: null });
+        // Manual gap (-1): do NOT auto-advance — user must press Next
+        if (sessionGapSec === -1) {
+            console.log('[PlaylistStore] onQueueLoopFinished: manual gap — waiting for user');
             return;
         }
 
-        // Set initial remaining and start 1-second tick for the UI countdown
-        set({ dwellRemaining: effectiveDwell });
+        // Immediate gap (0): advance now
+        if (sessionGapSec === 0) {
+            console.log('[PlaylistStore] onQueueLoopFinished: immediate gap — advancing now');
+            get().nextInQueue();
+            return;
+        }
+
+        // Timed gap: wait sessionGapSec then advance
+        console.log(`[PlaylistStore] onQueueLoopFinished: waiting ${sessionGapSec}s before next loop`);
+        get()._startGapTimer();
+    },
+
+    // ── Internal: session gap timer ──────────────────────────
+    _startGapTimer: () => {
+        const { sessionGapSec, gapTimer: existing } = get();
+        if (existing) clearTimeout(existing);
+        get()._clearGapTick();
+
+        if (sessionGapSec <= 0) {
+            // 0 or -1 should not reach here, but guard anyway
+            set({ gapTimer: null, dwellTimer: null });
+            return;
+        }
+
+        // Start countdown for UI
+        set({ gapRemaining: sessionGapSec, dwellRemaining: sessionGapSec });
         const tickTimer = setInterval(() => {
-            const { dwellRemaining } = get();
-            if (dwellRemaining !== null && dwellRemaining > 1) {
-                set({ dwellRemaining: dwellRemaining - 1 });
+            const { gapRemaining } = get();
+            if (gapRemaining !== null && gapRemaining > 1) {
+                set({ gapRemaining: gapRemaining - 1, dwellRemaining: gapRemaining - 1 });
             }
         }, 1000);
-        set({ _dwellTickTimer: tickTimer });
+        set({ _gapTickTimer: tickTimer });
 
-        console.log(`[PlaylistStore] _startDwellTimer: scheduling next advance in ${effectiveDwell}s`);
+        console.log(`[PlaylistStore] _startGapTimer: scheduling next advance in ${sessionGapSec}s`);
         const timer = setTimeout(() => {
-            console.log('[PlaylistStore] Dwell timer fired — advancing queue');
-            set({ dwellTimer: null });
-            get()._clearDwellTick();
+            console.log('[PlaylistStore] Gap timer fired — advancing queue');
+            set({ gapTimer: null, dwellTimer: null });
+            get()._clearGapTick();
             get().nextInQueue();
-        }, effectiveDwell * 1000);
+        }, sessionGapSec * 1000);
 
-        set({ dwellTimer: timer });
+        set({ gapTimer: timer, dwellTimer: timer });
+    },
+
+    // ── Internal: clear the 1-second countdown tick ───────────
+    _clearGapTick: () => {
+        const { _gapTickTimer } = get();
+        if (_gapTickTimer) {
+            clearInterval(_gapTickTimer);
+            set({ _gapTickTimer: null, gapRemaining: null, dwellRemaining: null });
+        }
+    },
+
+    /** @deprecated Legacy compat — audioStore.stop() references this */
+    _clearDwellTick: () => {
+        get()._clearGapTick();
+    },
+
+    /** @deprecated Unused — kept for compat */
+    _startDwellTimer: () => {
+        get()._startGapTimer();
     },
 }));
