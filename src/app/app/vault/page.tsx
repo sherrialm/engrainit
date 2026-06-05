@@ -635,9 +635,7 @@ function LoopCard({
                 {loop.duration > 0 && (
                     <span>🕐 {formatDuration(loop.duration)}</span>
                 )}
-                {loop.sourceType !== 'recording' && (
-                    <span>🔁 {loop.intervalSeconds}s interval</span>
-                )}
+                <span>🔁 {loop.intervalSeconds}s interval</span>
                 {loop.voiceId && (
                     <span>🎙️ {getVoiceLabel(loop.voiceId)}</span>
                 )}
@@ -688,53 +686,70 @@ function NowPlayingBar({
     onStop: () => void;
 }) {
     const { currentTime, duration, intervalRemaining, repeatCount, currentRepeat } = useAudioStore();
+    const [showControls, setShowControls] = useState(false);
 
     return (
-        <div className={`fixed bottom-0 left-0 right-0 bg-parchment-100 border-t border-forest-200 p-4 shadow-lg ${isPlaying ? 'glow-pulse' : ''}`}>
-            <div className="max-w-4xl mx-auto flex items-center gap-4">
-                {/* Track Info */}
-                <div className="flex-1 min-w-0">
-                    <p className="font-medium text-forest-700 truncate">
-                        {loop.title}
-                    </p>
-                    <p className="text-sm text-forest-500">
-                        {formatDuration(currentTime)} / {formatDuration(duration)}
-                        {intervalRemaining && (
-                            <span className="ml-3 text-forest-400">
-                                ⏱️ Next in {intervalRemaining}s
-                            </span>
-                        )}
-                    </p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                        {loop.voiceId && (
-                            <span className="text-xs text-forest-400">🎙️ {getVoiceLabel(loop.voiceId)}</span>
-                        )}
-                        {repeatCount !== null && currentRepeat > 0 && (
-                            <span className="text-xs text-amber-600 font-semibold">
-                                Play {currentRepeat} of {repeatCount}
-                            </span>
-                        )}
+        <div className={`fixed bottom-0 left-0 right-0 bg-parchment-100 border-t border-forest-200 shadow-lg z-50 ${isPlaying ? 'glow-pulse' : ''}`}>
+            <div className="max-w-4xl mx-auto p-4">
+                <div className="flex items-center gap-4">
+                    {/* Track Info */}
+                    <div className="flex-1 min-w-0">
+                        <p className="font-medium text-forest-700 truncate">
+                            {loop.title}
+                        </p>
+                        <p className="text-sm text-forest-500">
+                            {formatDuration(currentTime)} / {formatDuration(duration)}
+                            {intervalRemaining && (
+                                <span className="ml-3 text-forest-400">
+                                    ⏱️ Next in {intervalRemaining}s
+                                </span>
+                            )}
+                        </p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                            {loop.voiceId && (
+                                <span className="text-xs text-forest-400">🎙️ {getVoiceLabel(loop.voiceId)}</span>
+                            )}
+                            {repeatCount !== null && currentRepeat > 0 && (
+                                <span className="text-xs text-amber-600 font-semibold">
+                                    Play {currentRepeat} of {repeatCount}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowControls(!showControls)}
+                            className="p-2 text-forest-400 hover:text-forest-600 transition-colors"
+                            title={showControls ? 'Hide settings' : 'Repeat & interval settings'}
+                        >
+                            ⚙️
+                        </button>
+                        <button
+                            onClick={onToggle}
+                            className={`w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-105 transition-transform ${isPlaying
+                                ? 'bg-amber-500 text-forest-900'
+                                : 'bg-forest-600 text-parchment-100'
+                                }`}
+                        >
+                            {isPlaying ? '⏸️' : '▶️'}
+                        </button>
+                        <button
+                            onClick={onStop}
+                            className="p-2 text-forest-400 hover:text-forest-600"
+                        >
+                            ⏹️
+                        </button>
                     </div>
                 </div>
 
-                {/* Controls */}
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={onToggle}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl hover:scale-105 transition-transform ${isPlaying
-                            ? 'bg-amber-500 text-forest-900'
-                            : 'bg-forest-600 text-parchment-100'
-                            }`}
-                    >
-                        {isPlaying ? '⏸️' : '▶️'}
-                    </button>
-                    <button
-                        onClick={onStop}
-                        className="p-2 text-forest-400 hover:text-forest-600"
-                    >
-                        ⏹️
-                    </button>
-                </div>
+                {/* Expandable PlaybackControls */}
+                {showControls && (
+                    <div className="mt-3 pt-3 border-t border-forest-100">
+                        <PlaybackControls showVoice={false} compact />
+                    </div>
+                )}
             </div>
         </div>
     );
