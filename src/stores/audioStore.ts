@@ -326,13 +326,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 }
             } else {
                 // ── Standalone play ──
-                // Voice recordings always use native loop (SpacedRep can't manage HTMLAudioElement timing)
-                if (loop.sourceType === 'recording') {
-                    console.log('[AudioStore] Voice recording — playing with native loop');
-                    engine.play();
-                } else if (get().spacedController) {
-                    // TTS loops: delegate to SpacedRepetitionController which
-                    // handles -1 (manual/play once), 0 (continuous), and >0 (interval)
+                // Clear any stale queue-mode onLoop handler so it doesn't
+                // fire during SRC-managed repeats and corrupt playback state.
+                engine.onLoop = undefined;
+                // Both TTS and voice recordings use the SpacedRepetitionController
+                // which handles -1 (manual/play once), 0 (continuous), and >0 (interval).
+                // The SRC calls engine.play(false) for single plays and engine.play(true)
+                // for continuous mode — AudioEngine now honours the loop param for both
+                // Web Audio API and HTMLAudioElement paths.
+                if (get().spacedController) {
                     console.log('[AudioStore] Delegating play to SpacedRepetitionController, interval:', loop.intervalSeconds);
                     get().spacedController!.start();
                 } else {

@@ -23,7 +23,8 @@ import {
     SessionIcon, PlayIcon, PauseIcon, StopIcon, SkipNextIcon, SkipPrevIcon,
     CheckIcon, PlusIcon,
 } from '@/components/Icons';
-import PlaybackControls from '@/components/PlaybackControls';
+// PlaybackControls removed from active session view — it showed single-loop
+// repeat interval (irrelevant in session mode) and caused gap display confusion.
 import { getVoiceLabel } from '@/config/voices';
 import type { Loop, LoopCategory, LoopTag, SessionTypeId } from '@/types';
 
@@ -150,6 +151,9 @@ export default function SessionPage() {
     const [suggestedLoopIds, setSuggestedLoopIds] = useState<Set<string>>(new Set());
     // Confirmation state for session deletion
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    // Local source-of-truth for the active session's gap setting.
+    // Captured at session start to avoid stale Zustand hook reads.
+    const [activeGapSec, setActiveGapSec] = useState<number>(0);
 
     const isBuilding = draft !== null && !isStarted;
 
@@ -283,6 +287,7 @@ export default function SessionPage() {
         console.log('[SessionPage] calling startQueue');
         startQueue();
         console.log('[SessionPage] session started — gap:', gapSeconds, 's');
+        setActiveGapSec(gapSeconds);
         setIsStarted(true);
         setActiveSessionId(sessionId);
     }
@@ -292,6 +297,7 @@ export default function SessionPage() {
         stopQueue();
         setQueueMode(false);
         setIsStarted(false);
+        setActiveGapSec(0);
         setActiveSessionId(null);
     }
 
@@ -738,6 +744,17 @@ export default function SessionPage() {
                             Loop {queueIndex + 1} of {queue.length}
                         </p>
 
+                        {/* Session gap setting label — uses local activeGapSec
+                            captured at start time, not Zustand sessionGapSec which
+                            may lag by a render frame */}
+                        <p className="text-xs text-forest-400">
+                            {activeGapSec === -1
+                                ? 'Gap: Manual'
+                                : activeGapSec === 0
+                                ? 'Gap: Immediately'
+                                : `Gap: ${activeGapSec}s between loops`}
+                        </p>
+
                         {/* Voice label */}
                         {currentLoop?.voiceId && (
                             <p className="text-xs text-forest-400">
@@ -761,7 +778,7 @@ export default function SessionPage() {
                         )}
 
                         {/* Manual gap waiting indicator */}
-                        {sessionGapSec === -1 && !isPlaying && !audioLoading && currentItem && (
+                        {activeGapSec === -1 && !isPlaying && !audioLoading && currentItem && (
                             <p className="text-xs text-forest-500 italic">
                                 Press Next to advance to the next loop.
                             </p>
@@ -793,17 +810,14 @@ export default function SessionPage() {
                         </div>
                     </div>
 
-                    {/* Inline Playback Controls */}
-                    <PlaybackControls showVoice={false} compact />
-
                     {/* Queue */}
                     <div className="space-y-1">
                         <p className="text-xs text-forest-400 mb-2">
-                            {sessionGapSec === -1
+                            {activeGapSec === -1
                                 ? 'Each loop plays fully once. Press Next to advance.'
-                                : sessionGapSec === 0
+                                : activeGapSec === 0
                                 ? 'Each loop plays fully once, then the next starts immediately.'
-                                : `Each loop plays fully once, then waits ${sessionGapSec}s before the next.`}
+                                : `Each loop plays fully once, then waits ${activeGapSec}s before the next.`}
                         </p>
                         {queue.map((item, i) => (
                             <div
