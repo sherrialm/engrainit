@@ -34,6 +34,17 @@ const DWELL_PRESETS = [
     { label: '10m', value: 600 },
 ];
 
+/** Format intervalSeconds into a human-readable label for loop cards. */
+function formatIntervalLabel(seconds: number): string {
+    if (seconds === -1) return 'Play once';
+    if (seconds === 0) return 'Continuous';
+    if (seconds < 60) return `${seconds}s interval`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (s === 0) return `${m}m interval`;
+    return `${m}m ${s}s interval`;
+}
+
 export default function VaultPage() {
     const { user } = useAuthStore();
     const { fetchLoops, isLoading, error, selectedCategory, setCategory, removeLoop, updateLoop } = useVaultStore();
@@ -635,7 +646,7 @@ function LoopCard({
                 {loop.duration > 0 && (
                     <span>🕐 {formatDuration(loop.duration)}</span>
                 )}
-                <span>🔁 {loop.intervalSeconds}s interval</span>
+                <span>🔁 {formatIntervalLabel(loop.intervalSeconds)}</span>
                 {loop.voiceId && (
                     <span>🎙️ {getVoiceLabel(loop.voiceId)}</span>
                 )}
