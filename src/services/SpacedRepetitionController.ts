@@ -15,6 +15,7 @@ export class SpacedRepetitionController {
     private remainingSeconds: number = 0;
     private loopCount: number = 0;
     private maxRepeats: number | null = null; // null = infinite
+    private _htmlEndedHandler: (() => void) | null = null;
 
     // Callbacks
     public onIntervalStart?: (remainingSeconds: number) => void;
@@ -105,6 +106,7 @@ export class SpacedRepetitionController {
     stop(): void {
         this.isActive = false;
         this.clearTimers();
+        this.clearHtmlEndedListener();
         this.audioEngine.stop();
         this.remainingSeconds = 0;
         this.broadcastState();
@@ -188,12 +190,20 @@ export class SpacedRepetitionController {
             this.broadcastState();
 
             // After audio finishes, stop the session
-            const duration = this.audioEngine.getDuration() || 5;
-            this.intervalTimer = setTimeout(() => {
-                if (!this.isActive) return;
-                this.stop();
-                this.onSessionComplete?.();
-            }, duration * 1000);
+            if (this.audioEngine.getIsUsingHtmlAudio()) {
+                this.wireHtmlEnded(() => {
+                    if (!this.isActive) return;
+                    this.stop();
+                    this.onSessionComplete?.();
+                });
+            } else {
+                const duration = this.audioEngine.getDuration() || 5;
+                this.intervalTimer = setTimeout(() => {
+                    if (!this.isActive) return;
+                    this.stop();
+                    this.onSessionComplete?.();
+                }, duration * 1000);
+            }
             return;
         }
 
@@ -220,28 +230,48 @@ export class SpacedRepetitionController {
         if (this.maxRepeats !== null && this.loopCount >= this.maxRepeats) {
             console.log(`[SpacedRepetitionController] Max repeats reached (${this.loopCount}/${this.maxRepeats}), will stop after this play`);
             // Let current play finish, then stop (don't schedule interval)
-            const duration = this.audioEngine.getDuration() || 5;
-            this.intervalTimer = setTimeout(() => {
-                if (!this.isActive) return;
-                this.stop();
-                // Notify playlist store so it can advance to next loop
-                this.onSessionComplete?.();
-            }, duration * 1000);
+            if (this.audioEngine.getIsUsingHtmlAudio()) {
+                this.wireHtmlEnded(() => {
+                    if (!this.isActive) return;
+                    this.stop();
+                    this.onSessionComplete?.();
+                });
+            } else {
+                const duration = this.audioEngine.getDuration() || 5;
+                this.intervalTimer = setTimeout(() => {
+                    if (!this.isActive) return;
+                    this.stop();
+                    // Notify playlist store so it can advance to next loop
+                    this.onSessionComplete?.();
+                }, duration * 1000);
+            }
             return;
         }
 
         // Schedule interval after one play cycle
-        const duration = this.audioEngine.getDuration() || 5;
-        console.log(`[SpacedRepetitionController] Audio duration: ${duration}s, scheduling interval in ${duration}s`);
+        if (this.audioEngine.getIsUsingHtmlAudio()) {
+            // Voice recordings: duration metadata unreliable for webm/opus.
+            // Listen for the actual HTMLAudioElement 'ended' event instead.
+            console.log('[SpacedRepetitionController] HTML audio — waiting for ended event to start interval');
+            this.wireHtmlEnded(() => {
+                if (!this.isActive) return;
+                console.log(`[SpacedRepetitionController] Play cycle complete, starting ${this.intervalSeconds}s interval`);
+                this.startCountdown(this.intervalSeconds);
+            });
+        } else {
+            // TTS (Web Audio API): duration is always accurate — keep existing setTimeout
+            const duration = this.audioEngine.getDuration() || 5;
+            console.log(`[SpacedRepetitionController] Audio duration: ${duration}s, scheduling interval in ${duration}s`);
 
-        // After one play cycle, pause and start interval countdown
-        this.intervalTimer = setTimeout(() => {
-            if (!this.isActive) return;
+            // After one play cycle, pause and start interval countdown
+            this.intervalTimer = setTimeout(() => {
+                if (!this.isActive) return;
 
-            console.log(`[SpacedRepetitionController] Play cycle complete, starting ${this.intervalSeconds}s interval`);
-            this.audioEngine.pause();
-            this.startCountdown(this.intervalSeconds);
-        }, duration * 1000);
+                console.log(`[SpacedRepetitionController] Play cycle complete, starting ${this.intervalSeconds}s interval`);
+                this.audioEngine.pause();
+                this.startCountdown(this.intervalSeconds);
+            }, duration * 1000);
+        }
     }
 
     private startCountdown(seconds: number): void {
@@ -275,6 +305,36 @@ export class SpacedRepetitionController {
         if (this.countdownTimer) {
             clearInterval(this.countdownTimer);
             this.countdownTimer = null;
+        }
+    }
+
+    /**
+     * Wire a one-shot 'ended' listener on the HTMLAudioElement inside AudioEngine.
+     * Uses the same (engine as any).htmlAudio cast that audioStore already uses.
+     * Sets htmlAudio.loop = false so the 'ended' event actually fires.
+     */
+    private wireHtmlEnded(callback: () => void): void {
+        this.clearHtmlEndedListener();
+        const htmlAudio = (this.audioEngine as any).htmlAudio as HTMLAudioElement | null;
+        if (!htmlAudio) return;
+        htmlAudio.loop = false;
+        this._htmlEndedHandler = () => {
+            this._htmlEndedHandler = null;
+            callback();
+        };
+        htmlAudio.addEventListener('ended', this._htmlEndedHandler, { once: true });
+    }
+
+    /**
+     * Remove any pending 'ended' listener so it doesn't fire after stop/cleanup.
+     */
+    private clearHtmlEndedListener(): void {
+        if (this._htmlEndedHandler) {
+            const htmlAudio = (this.audioEngine as any).htmlAudio as HTMLAudioElement | null;
+            if (htmlAudio) {
+                htmlAudio.removeEventListener('ended', this._htmlEndedHandler);
+            }
+            this._htmlEndedHandler = null;
         }
     }
 
