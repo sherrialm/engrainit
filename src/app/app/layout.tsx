@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { useTierStore } from '@/stores/tierStore';
 import { TIER_DISPLAY } from '@/config/tiers';
-import { HomeIcon, VaultIcon, ProgressIcon } from '@/components/Icons';
+import { HomeIcon, VaultIcon, ProgressIcon, HelpIcon } from '@/components/Icons';
 import AIStatusIndicator from '@/components/AIStatusIndicator';
 
 export default function AppLayout({
@@ -106,6 +106,10 @@ export default function AppLayout({
                                 <ProgressIcon className="w-4 h-4" />
                                 Progress
                             </Link>
+                            <Link href="/app/help" className="btn-ghost text-sm flex items-center gap-1.5 text-forest-700 hover:text-forest-900">
+                                <HelpIcon className="w-4 h-4" />
+                                Help
+                            </Link>
                             <button
                                 onClick={() => signOut()}
                                 className="btn-ghost text-forest-500 hover:text-forest-700 text-sm"
@@ -156,6 +160,13 @@ export default function AppLayout({
                             className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
                         >
                             <ProgressIcon className="w-4 h-4" /> Progress
+                        </Link>
+                        <Link
+                            href="/app/help"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-2 py-2 px-3 rounded-lg text-forest-600 hover:bg-parchment-300 transition-colors"
+                        >
+                            <HelpIcon className="w-4 h-4" /> Help
                         </Link>
                         {tier !== 'pro' && (
                             <Link
