@@ -712,7 +712,7 @@ function NowPlayingBar({
                             {formatDuration(currentTime)} / {formatDuration(duration)}
                             {intervalRemaining && (
                                 <span className="ml-3 text-forest-400">
-                                    ⏱️ Next in {intervalRemaining}s
+                                    ⏱️ Next in {formatDuration(intervalRemaining)}
                                 </span>
                             )}
                         </p>
@@ -804,7 +804,7 @@ function QueueNowPlayingBar({
                         {formatDuration(currentTime)} / {formatDuration(duration)}
                         {dwellRemaining !== null && dwellRemaining > 0 ? (
                             <span className="ml-3 text-parchment-200 font-medium">
-                                Auto-next in {dwellRemaining}s
+                                Auto-next in {formatDuration(dwellRemaining)}
                             </span>
                         ) : dwellSec > 0 ? (
                             <span className="ml-3 text-parchment-400">
